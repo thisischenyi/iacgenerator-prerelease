@@ -1,0 +1,35 @@
+{# Azure Network Security Group Terraform Template #}
+{% set resource_group_ref = "azurerm_resource_group." + properties.ResourceGroup | replace('-', '_') + ".name" if not resource.skip_resource_group_creation else "\"" + properties.ResourceGroup + "\"" %}
+resource "azurerm_network_security_group" "{{ resource_name | replace('-', '_') }}" {
+  name                = "{{ resource_name }}"
+  location            = "{{ properties.Location }}"
+  resource_group_name = {{ resource_group_ref }}
+
+  {% if properties.SecurityRules %}
+  {% for rule in properties.SecurityRules %}
+  security_rule {
+    name                       = "{{ rule.Name | default(rule.name) }}"
+    priority                   = {{ rule.Priority | default(rule.priority) }}
+    direction                  = "{{ rule.Direction | default(rule.direction) }}"
+    access                     = "{{ rule.Access | default(rule.access) }}"
+    protocol                   = "{{ rule.Protocol | default(rule.protocol) }}"
+    source_port_range          = "{{ rule.SourcePortRange | default(rule.source_port_range) }}"
+    destination_port_range     = "{{ rule.DestinationPortRange | default(rule.destination_port_range) }}"
+    source_address_prefix      = "{{ rule.SourceAddressPrefix | default(rule.source_address_prefix) }}"
+    destination_address_prefix = "{{ rule.DestinationAddressPrefix | default(rule.destination_address_prefix) }}"
+    {% if rule.Description or rule.description %}
+    description                = "{{ rule.Description | default(rule.description) }}"
+    {% endif %}
+  }
+  {% endfor %}
+  {% endif %}
+
+  tags = merge(
+    {
+      Name        = "{{ resource_name }}"
+      Environment = "{{ properties.Environment | default('') }}"
+      Project     = "{{ properties.Project | default('') }}"
+    },
+    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
+  )
+}

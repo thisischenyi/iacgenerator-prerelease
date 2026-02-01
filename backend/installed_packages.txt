@@ -1,0 +1,272 @@
+aiohappyeyeballs @ file:///C:/veighna_studio/install/aiohappyeyeballs-2.6.1-py3-none-any.whl#sha256=f349ba8f4b75cb25c99c5c2d84e997e485204d2902a9597802b0371f09331fb8
+aiohttp @ file:///C:/veighna_studio/install/aiohttp-3.13.2-cp313-cp313-win_amd64.whl#sha256=a88d13e7ca367394908f8a276b89d04a3652044612b9a408a0bb22a5ed976a1a
+aiosignal @ file:///C:/veighna_studio/install/aiosignal-1.4.0-py3-none-any.whl#sha256=053243f8b92b990551949e63930a839ff0cf0b0ebbe0597b0f3fb19e1a0fe82e
+aiosqlite==0.22.1
+akshare==1.17.91
+annotated-doc @ file:///C:/veighna_studio/install/annotated_doc-0.0.3-py3-none-any.whl#sha256=348ec6664a76f1fd3be81f43dffbee4c7e8ce931ba71ec67cc7f4ade7fbbb580
+annotated-types @ file:///C:/veighna_studio/install/annotated_types-0.7.0-py3-none-any.whl#sha256=1f02e8b43a8fbbc3f3e0d4f0f4bfc8131bcb4eebe8849b8e5c773f3a1c582a53
+anyio @ file:///C:/veighna_studio/install/anyio-4.11.0-py3-none-any.whl#sha256=0287e96f4d26d4149305414d4e3bc32f0dcd0862365a4bddea19d7a1ec38c4fc
+argon2-cffi @ file:///C:/veighna_studio/install/argon2_cffi-25.1.0-py3-none-any.whl#sha256=fdc8b074db390fccb6eb4a3604ae7231f219aa669a2652e0f20e16ba513d5741
+argon2-cffi-bindings @ file:///C:/veighna_studio/install/argon2_cffi_bindings-25.1.0-cp39-abi3-win_amd64.whl#sha256=a98cd7d17e9f7ce244c0803cad3c23a7d379c301ba618a5fa76a67d116618b98
+arrow @ file:///C:/veighna_studio/install/arrow-1.4.0-py3-none-any.whl#sha256=749f0769958ebdc79c173ff0b0670d59051a535fa26e8eba02953dc19eb43205
+asttokens @ file:///C:/veighna_studio/install/asttokens-3.0.0-py3-none-any.whl#sha256=e3078351a059199dd5138cb1c706e6430c05eff2ff136af5eb4790f9d28932e2
+async-lru @ file:///C:/veighna_studio/install/async_lru-2.0.5-py3-none-any.whl#sha256=ab95404d8d2605310d345932697371a5f40def0487c03d6d0ad9138de52c9943
+attrs @ file:///C:/veighna_studio/install/attrs-25.4.0-py3-none-any.whl#sha256=adcf7e2a1fb3b36ac48d97835bb6d8ade15b8dcce26aba8bf1d14847b57a3373
+babel @ file:///C:/veighna_studio/install/babel-2.17.0-py3-none-any.whl#sha256=4d0b53093fdfb4b21c92b5213dba5a1b23885afa8383709427046b21c366e5f2
+beautifulsoup4 @ file:///C:/veighna_studio/install/beautifulsoup4-4.14.2-py3-none-any.whl#sha256=5ef6fa3a8cbece8488d66985560f97ed091e22bbc4e9c2338508a9d5de6d4515
+bleach @ file:///C:/veighna_studio/install/bleach-6.3.0-py3-none-any.whl#sha256=fe10ec77c93ddf3d13a73b035abaac7a9f5e436513864ccdad516693213c65d6
+Brotli @ file:///C:/veighna_studio/install/Brotli-1.1.0-cp313-cp313-win_amd64.whl#sha256=9011560a466d2eb3f5a6e4929cf4a09be405c64154e12df0dd72713f6500e32b
+bs4 @ file:///C:/veighna_studio/install/bs4-0.0.2-py2.py3-none-any.whl#sha256=abf8742c0805ef7f662dce4b51cca104cffe52b835238afc169142ab9b3fbccc
+cachetools @ file:///C:/veighna_studio/install/cachetools-5.5.0-py3-none-any.whl#sha256=02134e8439cdc2ffb62023ce1debca2944c3f289d66bb17ead3ab3dede74b292
+certifi @ file:///C:/veighna_studio/install/certifi-2025.10.5-py3-none-any.whl#sha256=0f212c2744a9bb6de0c56639a6f68afe01ecd92d91f14ae897c4fe7bbeeef0de
+cffi @ file:///C:/veighna_studio/install/cffi-2.0.0-cp313-cp313-win_amd64.whl#sha256=19f705ada2530c1167abacb171925dd886168931e0a7b78f5bffcae5c6b5be75
+charset-normalizer @ file:///C:/veighna_studio/install/charset_normalizer-3.4.4-cp313-cp313-win_amd64.whl#sha256=b435cba5f4f750aa6c0a0d92c541fb79f69a387c91e61f1795227e4ed9cece14
+click @ file:///C:/veighna_studio/install/click-8.3.0-py3-none-any.whl#sha256=9b9f285302c6e3064f4330c05f05b81945b2a39544279343e6e7c5f27a9baddc
+colorama @ file:///C:/veighna_studio/install/colorama-0.4.6-py2.py3-none-any.whl#sha256=4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6
+comm @ file:///C:/veighna_studio/install/comm-0.2.3-py3-none-any.whl#sha256=c615d91d75f7f04f095b30d1c1711babd43bdc6419c1be9886a85f2f4e489417
+comtypes @ file:///C:/veighna_studio/install/comtypes-1.4.13-py3-none-any.whl#sha256=21546210748ba52e839e52112124b16ffab7d7fb68096493165fbc249e9023ad
+contourpy @ file:///C:/veighna_studio/install/contourpy-1.3.3-cp313-cp313-win_amd64.whl#sha256=1cadd8b8969f060ba45ed7c1b714fe69185812ab43bd6b86a9123fe8f99c3263
+cryptography @ file:///C:/veighna_studio/install/cryptography-46.0.3-cp311-abi3-win_amd64.whl#sha256=a9a3008438615669153eb86b26b61e09993921ebdd75385ddd748702c5adfddb
+cycler @ file:///C:/veighna_studio/install/cycler-0.12.1-py3-none-any.whl#sha256=85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30
+deap @ file:///C:/veighna_studio/install/deap-1.4.2-cp313-cp313-win_amd64.whl#sha256=1abab976c75b0f18c36e81f968fcc77fac69fc9bedbab8be3323ca376f6fcfa4
+debugpy @ file:///C:/veighna_studio/install/debugpy-1.8.17-cp313-cp313-win_amd64.whl#sha256=6c5cd6f009ad4fca8e33e5238210dc1e5f42db07d4b6ab21ac7ffa904a196420
+decorator @ file:///C:/veighna_studio/install/decorator-5.2.1-py3-none-any.whl#sha256=d316bb415a2d9e2d2b3abcc4084c6502fc09240e292cd76a76afc106a1c8e04a
+defusedxml @ file:///C:/veighna_studio/install/defusedxml-0.7.1-py2.py3-none-any.whl#sha256=a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61
+distro==1.9.0
+dnspython @ file:///C:/veighna_studio/install/dnspython-2.8.0-py3-none-any.whl#sha256=01d9bbc4a2d76bf0db7c1f729812ded6d912bd318d3b1cf81d30c0f845dbf3af
+ecdsa @ file:///C:/veighna_studio/install/ecdsa-0.19.1-py2.py3-none-any.whl#sha256=30638e27cf77b7e15c4c4cc1973720149e1033827cfd00661ca5c8cc0cdb24c3
+et_xmlfile==2.0.0
+exchange_calendars @ file:///C:/veighna_studio/install/exchange_calendars-4.11.1-py3-none-any.whl#sha256=40ec771589e5a9b96b9e09667cd0f3fde7c70444e3a7530b8989ebd0750ee478
+executing @ file:///C:/veighna_studio/install/executing-2.2.1-py2.py3-none-any.whl#sha256=760643d3452b4d777d295bb167ccc74c64a81df23fb5e08eff250c425a4b2017
+fastapi @ file:///C:/veighna_studio/install/fastapi-0.121.0-py3-none-any.whl#sha256=8bdf1b15a55f4e4b0d6201033da9109ea15632cb76cf156e7b8b4019f2172106
+fastjsonschema @ file:///C:/veighna_studio/install/fastjsonschema-2.21.2-py3-none-any.whl#sha256=1c797122d0a86c5cace2e54bf4e819c36223b552017172f32c5c024a6b77e463
+filelock @ file:///C:/veighna_studio/install/filelock-3.20.0-py3-none-any.whl#sha256=339b4732ffda5cd79b13f4e2711a31b0365ce445d95d243bb996273d072546a2
+fonttools @ file:///C:/veighna_studio/install/fonttools-4.60.1-cp313-cp313-win_amd64.whl#sha256=a3db56f153bd4c5c2b619ab02c5db5192e222150ce5a1bc10f16164714bc39ac
+fqdn @ file:///C:/veighna_studio/install/fqdn-1.5.1-py3-none-any.whl#sha256=3a179af3761e4df6eb2e026ff9e1a3033d3587bf980a0b1b2e1e5d08d7358014
+frozenlist @ file:///C:/veighna_studio/install/frozenlist-1.8.0-cp313-cp313-win_amd64.whl#sha256=878be833caa6a3821caf85eb39c5ba92d28e85df26d57afb06b35b2efd937231
+gm @ file:///C:/veighna_studio/install/gm-3.0.179-cp313-cp313-win_amd64.whl#sha256=906bd09beba258172db63b74d5996c9e60a42938d3d6df12fec9e0661707e015
+graphql-core @ file:///C:/veighna_studio/install/graphql_core-3.2.7-py3-none-any.whl#sha256=17fc8f3ca4a42913d8e24d9ac9f08deddf0a0b2483076575757f6c412ead2ec0
+greenlet==3.3.0
+h11 @ file:///C:/veighna_studio/install/h11-0.16.0-py3-none-any.whl#sha256=63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86
+html5lib==1.1
+httpcore @ file:///C:/veighna_studio/install/httpcore-1.0.9-py3-none-any.whl#sha256=2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55
+httpx @ file:///C:/veighna_studio/install/httpx-0.28.1-py3-none-any.whl#sha256=d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad
+icetcore @ file:///C:/veighna_studio/install/icetcore-6.6.79-py3-none-any.whl#sha256=28fac6767960ed0eddb3b632397badfd5c6a4ec8ff15e3cf0eea36fd5022358d
+idna @ file:///C:/veighna_studio/install/idna-3.11-py3-none-any.whl#sha256=771a87f49d9defaf64091e6e6fe9c18d4833f140bd19464795bc32d966ca37ea
+importlib_metadata @ file:///C:/veighna_studio/install/importlib_metadata-8.7.0-py3-none-any.whl#sha256=e5dd1551894c77868a30651cef00984d50e1002d06942a7101d34870c5f02afd
+ipykernel @ file:///C:/veighna_studio/install/ipykernel-7.1.0-py3-none-any.whl#sha256=763b5ec6c5b7776f6a8d7ce09b267693b4e5ce75cb50ae696aaefb3c85e1ea4c
+ipython @ file:///C:/veighna_studio/install/ipython-9.6.0-py3-none-any.whl#sha256=5f77efafc886d2f023442479b8149e7d86547ad0a979e9da9f045d252f648196
+ipython_pygments_lexers @ file:///C:/veighna_studio/install/ipython_pygments_lexers-1.1.1-py3-none-any.whl#sha256=a9462224a505ade19a605f71f8fa63c2048833ce50abc86768a0d81d876dc81c
+iso8601 @ file:///C:/veighna_studio/install/iso8601-1.0.2-py3-none-any.whl#sha256=d7bc01b1c2a43b259570bb307f057abc578786ea734ba2b87b836c5efc5bd443
+isoduration @ file:///C:/veighna_studio/install/isoduration-20.11.0-py3-none-any.whl#sha256=b2904c2a4228c3d44f409c8ae8e2370eb21a26f7ac2ec5446df141dde3452042
+jedi @ file:///C:/veighna_studio/install/jedi-0.19.2-py2.py3-none-any.whl#sha256=a8ef22bde8490f57fe5c7681a3c83cb58874daf72b4784de3cce5b6ef6edb5b9
+Jinja2 @ file:///C:/veighna_studio/install/jinja2-3.1.6-py3-none-any.whl#sha256=85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67
+jiter==0.12.0
+json5 @ file:///C:/veighna_studio/install/json5-0.12.1-py3-none-any.whl#sha256=d9c9b3bc34a5f54d43c35e11ef7cb87d8bdd098c6ace87117a7b7e83e705c1d5
+jsonpatch==1.33
+jsonpath==0.82.2
+jsonpointer @ file:///C:/veighna_studio/install/jsonpointer-3.0.0-py2.py3-none-any.whl#sha256=13e088adc14fca8b6aa8177c044e12701e6ad4b28ff10e65f2267a90109c9942
+jsonschema @ file:///C:/veighna_studio/install/jsonschema-4.25.1-py3-none-any.whl#sha256=3fba0169e345c7175110351d456342c364814cfcf3b964ba4587f22915230a63
+jsonschema-specifications @ file:///C:/veighna_studio/install/jsonschema_specifications-2025.9.1-py3-none-any.whl#sha256=98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe
+jupyter-events @ file:///C:/veighna_studio/install/jupyter_events-0.12.0-py3-none-any.whl#sha256=6464b2fa5ad10451c3d35fabc75eab39556ae1e2853ad0c0cc31b656731a97fb
+jupyter-lsp @ file:///C:/veighna_studio/install/jupyter_lsp-2.3.0-py3-none-any.whl#sha256=e914a3cb2addf48b1c7710914771aaf1819d46b2e5a79b0f917b5478ec93f34f
+jupyter_client @ file:///C:/veighna_studio/install/jupyter_client-8.6.3-py3-none-any.whl#sha256=e8a19cc986cc45905ac3362915f410f3af85424b4c0905e94fa5f2cb08e8f23f
+jupyter_core @ file:///C:/veighna_studio/install/jupyter_core-5.9.1-py3-none-any.whl#sha256=ebf87fdc6073d142e114c72c9e29a9d7ca03fad818c5d300ce2adc1fb0743407
+jupyter_server @ file:///C:/veighna_studio/install/jupyter_server-2.17.0-py3-none-any.whl#sha256=e8cb9c7db4251f51ed307e329b81b72ccf2056ff82d50524debde1ee1870e13f
+jupyter_server_terminals @ file:///C:/veighna_studio/install/jupyter_server_terminals-0.5.3-py3-none-any.whl#sha256=41ee0d7dc0ebf2809c668e0fc726dfaf258fcd3e769568996ca731b6194ae9aa
+jupyterlab @ file:///C:/veighna_studio/install/jupyterlab-4.4.10-py3-none-any.whl#sha256=65939ab4c8dcd0c42185c2d0d1a9d60b254dc8c46fc4fdb286b63c51e9358e07
+jupyterlab_pygments @ file:///C:/veighna_studio/install/jupyterlab_pygments-0.3.0-py3-none-any.whl#sha256=841a89020971da1d8693f1a99997aefc5dc424bb1b251fd6322462a1b8842780
+jupyterlab_server @ file:///C:/veighna_studio/install/jupyterlab_server-2.28.0-py3-none-any.whl#sha256=e4355b148fdcf34d312bbbc80f22467d6d20460e8b8736bf235577dd18506968
+kiwisolver @ file:///C:/veighna_studio/install/kiwisolver-1.4.9-cp313-cp313-win_amd64.whl#sha256=dd0a578400839256df88c16abddf9ba14813ec5f21362e1fe65022e00c883d4d
+korean-lunar-calendar @ file:///C:/veighna_studio/install/korean_lunar_calendar-0.3.1-py3-none-any.whl#sha256=392757135c492c4f42a604e6038042953c35c6f449dda5f27e3f86a7f9c943e5
+langchain==1.2.3
+langchain-community==0.4.1
+langchain-core==1.2.7
+langchain-openai==1.1.7
+langgraph==1.0.6
+langgraph-checkpoint==4.0.0
+langgraph-prebuilt==1.0.6
+langgraph-sdk==0.3.3
+langsmith==0.6.2
+lark @ file:///C:/veighna_studio/install/lark-1.3.1-py3-none-any.whl#sha256=c629b661023a014c37da873b4ff58a817398d12635d3bbb2c5a03be7fe5d1e12
+loguru @ file:///C:/veighna_studio/install/loguru-0.7.3-py3-none-any.whl#sha256=31a33c10c8e1e10422bfd431aeb5d351c7cf7fa671e3c4df004162264b28220c
+lxml @ file:///C:/veighna_studio/install/lxml-6.0.2-cp313-cp313-win_amd64.whl#sha256=b30d46379644fbfc3ab81f8f82ae4de55179414651f110a1514f0b1f8f6cb2d7
+MarkupSafe @ file:///C:/veighna_studio/install/markupsafe-3.0.3-cp313-cp313-win_amd64.whl#sha256=9a1abfdc021a164803f4d485104931fb8f8c1efd55bc6b748d2f5774e78b62c5
+matplotlib @ file:///C:/veighna_studio/install/matplotlib-3.10.7-cp313-cp313-win_amd64.whl#sha256=744991e0cc863dd669c8dc9136ca4e6e0082be2070b9d793cbd64bec872a6815
+matplotlib-inline @ file:///C:/veighna_studio/install/matplotlib_inline-0.2.1-py3-none-any.whl#sha256=d56ce5156ba6085e00a9d54fead6ed29a9c47e215cd1bba2e976ef39f5710a76
+mini-racer==0.12.4
+mistune @ file:///C:/veighna_studio/install/mistune-3.1.4-py3-none-any.whl#sha256=93691da911e5d9d2e23bc54472892aff676df27a75274962ff9edc210364266d
+msgpack @ file:///C:/veighna_studio/install/msgpack-1.1.2-cp313-cp313-win_amd64.whl#sha256=a465f0dceb8e13a487e54c07d04ae3ba131c7c5b95e2612596eafde1dccf64a9
+multidict @ file:///C:/veighna_studio/install/multidict-6.7.0-cp313-cp313-win_amd64.whl#sha256=30d193c6cc6d559db42b6bcec8a5d395d34d60c9877a0b71ecd7c204fcf15390
+narwhals @ file:///C:/veighna_studio/install/narwhals-2.10.1-py3-none-any.whl#sha256=eed3d9ec8f821963456fef306c1ad11017995982169fca1f38f71c97d6a97b9b
+nbclient @ file:///C:/veighna_studio/install/nbclient-0.10.2-py3-none-any.whl#sha256=4ffee11e788b4a27fabeb7955547e4318a5298f34342a4bfd01f2e1faaeadc3d
+nbconvert @ file:///C:/veighna_studio/install/nbconvert-7.16.6-py3-none-any.whl#sha256=1375a7b67e0c2883678c48e506dc320febb57685e5ee67faa51b18a90f3a712b
+nbformat @ file:///C:/veighna_studio/install/nbformat-5.10.4-py3-none-any.whl#sha256=3b48d6c8fbca4b299bf3982ea7db1af21580e4fec269ad087b9e81588891200b
+nest-asyncio @ file:///C:/veighna_studio/install/nest_asyncio-1.6.0-py3-none-any.whl#sha256=87af6efd6b5e897c81050477ef65c62e2b2f35d51703cae01aff2905b1852e1c
+notebook_shim @ file:///C:/veighna_studio/install/notebook_shim-0.2.4-py3-none-any.whl#sha256=411a5be4e9dc882a074ccbcae671eda64cceb068767e9a3419096986560e1cef
+Nuitka @ file:///C:/veighna_studio/install/Nuitka-2.8.4.tar.gz#sha256=06b020ef33be97194f888dcfcd4c69c8452ceb61b31c7622e610d5156eb7923d
+numpy @ file:///C:/veighna_studio/install/numpy-2.2.3-cp313-cp313-win_amd64.whl#sha256=5b732c8beef1d7bc2d9e476dbba20aaff6167bf205ad9aa8d30913859e82884b
+openai==2.15.0
+openpyxl==3.1.5
+ordered-set @ file:///C:/veighna_studio/install/ordered_set-4.1.0-py3-none-any.whl#sha256=046e1132c71fcf3330438a539928932caf51ddbc582496833e23de611de14562
+orjson @ file:///C:/veighna_studio/install/orjson-3.11.4-cp313-cp313-win_amd64.whl#sha256=09bf242a4af98732db9f9a1ec57ca2604848e16f132e3f72edfd3c5c96de009a
+ormsgpack==1.12.1
+packaging @ file:///C:/veighna_studio/install/packaging-25.0-py3-none-any.whl#sha256=29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484
+pandas @ file:///C:/veighna_studio/install/pandas-2.2.3-cp313-cp313-win_amd64.whl#sha256=61c5ad4043f791b61dd4752191d9f07f0ae412515d59ba8f005832a532f8736d
+pandocfilters @ file:///C:/veighna_studio/install/pandocfilters-1.5.1-py2.py3-none-any.whl#sha256=93be382804a9cdb0a7267585f157e5d1731bbe5545a85b268d6f5fe6232de2bc
+parso @ file:///C:/veighna_studio/install/parso-0.8.5-py2.py3-none-any.whl#sha256=646204b5ee239c396d040b90f9e272e9a8017c630092bf59980beb62fd033887
+passlib @ file:///C:/veighna_studio/install/passlib-1.7.4-py2.py3-none-any.whl#sha256=aa6bca462b8d8bda89c70b382f0c298a20b5560af6cbfa2dce410c0a2fb669f1
+peewee @ file:///C:/veighna_studio/install/peewee-3.16.3-py3-none-any.whl#sha256=ff8fa237abd5eb5cbfe46b36b58e79385155432663411d194c36fb7a0cf08eb7
+pillow @ file:///C:/veighna_studio/install/pillow-12.0.0-cp313-cp313-win_amd64.whl#sha256=4cf7fed4b4580601c4345ceb5d4cbf5a980d030fd5ad07c4d2ec589f95f09905
+platformdirs @ file:///C:/veighna_studio/install/platformdirs-4.5.0-py3-none-any.whl#sha256=e578a81bb873cbb89a41fcc904c7ef523cc18284b7e3b3ccf06aca1403b7ebd3
+plotly @ file:///C:/veighna_studio/install/plotly-6.0.0-py3-none-any.whl#sha256=f708871c3a9349a68791ff943a5781b1ec04de7769ea69068adcd9202e57653a
+polygon-api-client @ file:///C:/veighna_studio/install/polygon_api_client-1.16.3-py3-none-any.whl#sha256=4dec9e27fb5d17a36aacd9372d1df30af2f2b7639b4166ca10d2d48d128d2cd8
+prometheus_client @ file:///C:/veighna_studio/install/prometheus_client-0.23.1-py3-none-any.whl#sha256=dd1913e6e76b59cfe44e7a4b83e01afc9873c1bdfd2ed8739f1e76aeca115f99
+prompt_toolkit @ file:///C:/veighna_studio/install/prompt_toolkit-3.0.52-py3-none-any.whl#sha256=9aac639a3bbd33284347de5ad8d68ecc044b91a762dc39b7c21095fcd6a19955
+propcache @ file:///C:/veighna_studio/install/propcache-0.4.1-cp313-cp313-win_amd64.whl#sha256=381914df18634f5494334d201e98245c0596067504b9372d8cf93f4bb23e025e
+protobuf @ file:///C:/veighna_studio/install/protobuf-3.20.3-py2.py3-none-any.whl#sha256=a7ca6d488aa8ff7f329d4c545b2dbad8ac31464f1d8b1c87ad1346717731e4db
+psutil @ file:///C:/veighna_studio/install/psutil-7.1.3-cp37-abi3-win_amd64.whl#sha256=f39c2c19fe824b47484b96f9692932248a54c43799a84282cfe58d05a6449efd
+pure_eval @ file:///C:/veighna_studio/install/pure_eval-0.2.3-py3-none-any.whl#sha256=1db8e35b67b3d218d818ae653e27f06c3aa420901fa7b081ca98cbedc874e0d0
+pyasn1 @ file:///C:/veighna_studio/install/pyasn1-0.6.1-py3-none-any.whl#sha256=0d632f46f2ba09143da3a8afe9e33fb6f92fa2320ab7e886e2d0f7672af84629
+pycparser @ file:///C:/veighna_studio/install/pycparser-2.23-py3-none-any.whl#sha256=e5c6e8d3fbad53479cab09ac03729e0a9faf2bee3db8208a550daf5af81a5934
+pydantic @ file:///C:/veighna_studio/install/pydantic-2.12.3-py3-none-any.whl#sha256=6986454a854bc3bc6e5443e1369e06a3a456af9d339eda45510f517d9ea5c6bf
+pydantic-settings==2.12.0
+pydantic_core @ file:///C:/veighna_studio/install/pydantic_core-2.41.4-cp313-cp313-win_amd64.whl#sha256=d081a1f3800f05409ed868ebb2d74ac39dd0c1ff6c035b5162356d76030736d4
+Pygments @ file:///C:/veighna_studio/install/pygments-2.19.2-py3-none-any.whl#sha256=86540386c03d588bb81d44bc3928634ff26449851e99741617ecb9037ee5ec0b
+PyJWT @ file:///C:/veighna_studio/install/PyJWT-2.10.1-py3-none-any.whl#sha256=dcdd193e30abefd5debf142f9adfcdd2b58004e644f25406ffaebd50bd98dacb
+pyluach @ file:///C:/veighna_studio/install/pyluach-2.3.0-py3-none-any.whl#sha256=4497b731aef59508b079dbf5f00bc5bf4329ac45090a6cd37b5a83756f0e69ab
+pymongo @ file:///C:/veighna_studio/install/pymongo-4.15.3-cp313-cp313-win_amd64.whl#sha256=52f40c4b8c00bc53d4e357fe0de13d031c4cddb5d201e1a027db437e8d2887f8
+pyparsing @ file:///C:/veighna_studio/install/pyparsing-3.2.5-py3-none-any.whl#sha256=e38a4f02064cf41fe6593d328d0512495ad1f3d8a91c4f73fc401b3079a59a5e
+pyqtgraph @ file:///C:/veighna_studio/install/pyqtgraph-0.13.7-py3-none-any.whl#sha256=7754edbefb6c367fa0dfb176e2d0610da3ada20aa7a5318516c74af5fb72bf7a
+PySide6 @ file:///C:/veighna_studio/install/PySide6-6.8.2.1-cp39-abi3-win_amd64.whl#sha256=92361e41727910e3560ea5ba494fabecc76cd20892c9fcb2ced07619081c4e65
+PySide6_Addons @ file:///C:/veighna_studio/install/PySide6_Addons-6.8.2.1-cp39-abi3-win_amd64.whl#sha256=c761cc45022aa79d8419e671e7fb34a4a3e5b3826f1e68fcb819bd6e3a387fbb
+PySide6_Essentials @ file:///C:/veighna_studio/install/PySide6_Essentials-6.8.2.1-cp39-abi3-win_amd64.whl#sha256=18de224f09108998d194e60f2fb8a1e86367dd525dd8a6192598e80e6ada649e
+python-dateutil @ file:///C:/veighna_studio/install/python_dateutil-2.9.0.post0-py2.py3-none-any.whl#sha256=a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427
+python-dotenv==1.2.1
+python-jose @ file:///C:/veighna_studio/install/python_jose-3.5.0-py2.py3-none-any.whl#sha256=abd1202f23d34dfad2c3d28cb8617b90acf34132c7afd60abd0b0b7d3cb55771
+python-json-logger @ file:///C:/veighna_studio/install/python_json_logger-4.0.0-py3-none-any.whl#sha256=af09c9daf6a813aa4cc7180395f50f2a9e5fa056034c9953aec92e381c5ba1e2
+python-multipart @ file:///C:/veighna_studio/install/python_multipart-0.0.20-py3-none-any.whl#sha256=8a62d3a8335e06589fe01f2a3e178cdcc632f3fbe0d492ad9ee0ec35aab1f104
+python-rapidjson @ file:///C:/veighna_studio/install/python_rapidjson-1.22-cp313-cp313-win_amd64.whl#sha256=87e13dd58833583ce424bbe4748ac10393d4a366665b4e3f0348411842361b12
+pytz @ file:///C:/veighna_studio/install/pytz-2023.3-py2.py3-none-any.whl#sha256=a151b3abb88eda1d4e34a9814df37de2a80e301e68ba0fd856fb9b46bfbbbffb
+pywin32 @ file:///C:/veighna_studio/install/pywin32-311-cp313-cp313-win_amd64.whl#sha256=718a38f7e5b058e76aee1c56ddd06908116d35147e133427e59a3983f703a20d
+pywinpty @ file:///C:/veighna_studio/install/pywinpty-3.0.2-cp313-cp313-win_amd64.whl#sha256=18f78b81e4cfee6aabe7ea8688441d30247b73e52cd9657138015c5f4ee13a51
+pyxll @ file:///C:/veighna_studio/install/pyxll-5.11.2-cp313-none-any.whl#sha256=f8a0cc8e4d39382ae4d71dac9ae8161abc4f88fde023f7b8676df9bacc9d198a
+PyYAML @ file:///C:/veighna_studio/install/pyyaml-6.0.3-cp313-cp313-win_amd64.whl#sha256=79005a0d97d5ddabfeeea4cf676af11e647e41d81c9a7722a193022accdb6b7c
+pyzmq @ file:///C:/veighna_studio/install/pyzmq-26.3.0-cp313-cp313-win_amd64.whl#sha256=fe67291775ea4c2883764ba467eb389c29c308c56b86c1e19e49c9e1ed0cbeca
+QDarkStyle @ file:///C:/veighna_studio/install/QDarkStyle-3.2.3-py2.py3-none-any.whl#sha256=ea980ee426d594909cf1058306832af71ff6cbad6f69237b036d1550635aefbc
+QtAwesome @ file:///C:/veighna_studio/install/qtawesome-1.4.0-py3-none-any.whl#sha256=a4d689fa071c595aa6184171ce1f0f847677cb8d2db45382c43129f1d72a3d93
+QtPy @ file:///C:/veighna_studio/install/QtPy-2.4.3-py3-none-any.whl#sha256=72095afe13673e017946cc258b8d5da43314197b741ed2890e563cf384b51aa1
+referencing @ file:///C:/veighna_studio/install/referencing-0.37.0-py3-none-any.whl#sha256=381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231
+regex==2025.11.3
+requests @ file:///C:/veighna_studio/install/requests-2.32.5-py3-none-any.whl#sha256=2462f94637a34fd532264295e186976db0f5d453d1cdd31473c85a6a161affb6
+requests-toolbelt==1.0.0
+rfc3339-validator @ file:///C:/veighna_studio/install/rfc3339_validator-0.1.4-py2.py3-none-any.whl#sha256=24f6ec1eda14ef823da9e36ec7113124b39c04d50a4d3d3a3c2859577e7791fa
+rfc3986-validator @ file:///C:/veighna_studio/install/rfc3986_validator-0.1.1-py2.py3-none-any.whl#sha256=2f235c432ef459970b4306369336b9d5dbdda31b510ca1e327636e01f528bfa9
+rfc3987-syntax @ file:///C:/veighna_studio/install/rfc3987_syntax-1.1.0-py3-none-any.whl#sha256=6c3d97604e4c5ce9f714898e05401a0445a641cfa276432b0a648c80856f6a3f
+rpds-py @ file:///C:/veighna_studio/install/rpds_py-0.28.0-cp313-cp313-win_amd64.whl#sha256=e0a0311caedc8069d68fc2bf4c9019b58a2d5ce3cd7cb656c845f1615b577e1e
+rqdatac @ file:///C:/veighna_studio/install/rqdatac-3.3.1-cp313-cp313-win_amd64.whl#sha256=1496dcb18798597fea42c7347e2a8aaa6bc298cb59e5281c6450b746a9f27cc2
+rsa @ file:///C:/veighna_studio/install/rsa-4.9.1-py3-none-any.whl#sha256=68635866661c6836b8d39430f97a996acbd61bfa49406748ea243539fe239762
+scipy @ file:///C:/veighna_studio/install/scipy-1.16.3-cp313-cp313-win_amd64.whl#sha256=062246acacbe9f8210de8e751b16fc37458213f124bef161a5a02c7a39284304
+Send2Trash @ file:///C:/veighna_studio/install/Send2Trash-1.8.3-py3-none-any.whl#sha256=0c31227e0bd08961c7665474a3d1ef7193929fedda4233843689baa056be46c9
+setuptools==80.9.0
+sgqlc @ file:///C:/veighna_studio/install/sgqlc-17.1-py3-none-any.whl#sha256=d4d030ee687b66a840d605c81060585998fc22bba805b55e496911108800fc48
+shiboken6 @ file:///C:/veighna_studio/install/shiboken6-6.8.2.1-cp39-abi3-win_amd64.whl#sha256=1b751d47b759762b7ca31bad278d52eca4105d3028880d93979261ebbfba810c
+shinny-structlog @ file:///C:/veighna_studio/install/shinny_structlog-0.0.4-py3-none-any.whl#sha256=989f96f484eeefae2a37a80fd262a3d3c92d14e3fe8346c218f45dff0a3412c8
+simplejson @ file:///C:/veighna_studio/install/simplejson-3.20.2-cp313-cp313-win_amd64.whl#sha256=a1a85013eb33e4820286139540accbe2c98d2da894b2dcefd280209db508e608
+six @ file:///C:/veighna_studio/install/six-1.17.0-py2.py3-none-any.whl#sha256=4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274
+sniffio @ file:///C:/veighna_studio/install/sniffio-1.3.1-py3-none-any.whl#sha256=2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2
+soupsieve @ file:///C:/veighna_studio/install/soupsieve-2.8-py3-none-any.whl#sha256=0cc76456a30e20f5d7f2e14a98a4ae2ee4e5abdc7c5ea0aafe795f344bc7984c
+SQLAlchemy==2.0.45
+stack-data @ file:///C:/veighna_studio/install/stack_data-0.6.3-py3-none-any.whl#sha256=d5558e0c25a4cb0853cddad3d77da9891a08cb85dd9f9f91b9f8cd66e511e695
+starlette @ file:///C:/veighna_studio/install/starlette-0.49.3-py3-none-any.whl#sha256=b579b99715fdc2980cf88c8ec96d3bf1ce16f5a8051a7c2b84ef9b1cdecaea2f
+ta-lib @ file:///C:/veighna_studio/install/ta_lib-0.6.4-cp313-cp313-win_amd64.whl#sha256=1a603084df659515d6f6107f0844678284cb2d3813eafacd4c378b0d7a6c8ffa
+tabulate==0.9.0
+taospy @ file:///C:/veighna_studio/install/taospy-2.8.6-py3-none-any.whl#sha256=e9dab2c74183e406c29fceadafbfb458758f1b398fd19286c654d34bef70c422
+tenacity==9.1.2
+terminado @ file:///C:/veighna_studio/install/terminado-0.18.1-py3-none-any.whl#sha256=a4468e1b37bb318f8a86514f65814e1afc977cf29b3992a4500d9dd305dcceb0
+tiktoken==0.12.0
+tinycss2 @ file:///C:/veighna_studio/install/tinycss2-1.4.0-py3-none-any.whl#sha256=3a49cf47b7675da0b15d0c6e1df8df4ebd96e9394bb905a5775adb0d884c5289
+toolz @ file:///C:/veighna_studio/install/toolz-1.1.0-py3-none-any.whl#sha256=15ccc861ac51c53696de0a5d6d4607f99c210739caf987b5d2054f3efed429d8
+tornado @ file:///C:/veighna_studio/install/tornado-6.5.2-cp39-abi3-win_amd64.whl#sha256=e56a5af51cc30dd2cae649429af65ca2f6571da29504a07995175df14c18f35f
+tqdm @ file:///C:/veighna_studio/install/tqdm-4.67.1-py3-none-any.whl#sha256=26445eca388f82e72884e0d580d5464cd801a3ea01e63e5601bdff9ba6a48de2
+tqsdk @ file:///C:/veighna_studio/install/tqsdk-3.8.6-py3-none-any.whl#sha256=70f2c8013cfa68db4f80c020ffd58389b80f5df50736b53750bb8b122ea8e663
+tqsdk-ctpse @ file:///C:/veighna_studio/install/tqsdk_ctpse-1.0.2-py3-none-win_amd64.whl#sha256=0301503e9a4a6b886d48adc2d840d98292bde100064e1cf9446f5fa0989bbd58
+tqsdk-sm @ file:///C:/veighna_studio/install/tqsdk_sm-1.0.5-py3-none-win_amd64.whl#sha256=f0e7a1cc7ce58dd1d5261a8a7da7d64902bfece9e819be600c0d2ce0b81de518
+traitlets @ file:///C:/veighna_studio/install/traitlets-5.14.3-py3-none-any.whl#sha256=b74e89e397b1ed28cc831db7aea759ba6640cb3de13090ca145426688ff1ac4f
+tspytsl @ file:///C:/veighna_studio/install/tspytsl-1.9-cp313-cp313-win_amd64.whl#sha256=65c8f97225cc32a8b01e923d9677a389b84d797d1c2407505354d015b5c15128
+tushare @ file:///C:/veighna_studio/install/tushare-1.4.24-py3-none-any.whl#sha256=778e3128262747cb0cdadac2e5a5e6cd1a520c239b4ffbde2776652424451b08
+typing @ file:///C:/veighna_studio/install/typing-3.7.4.3.tar.gz#sha256=1187fb9c82fd670d10aa07bbb6cfcfe4bdda42d6fab8d5134f04e8c4d0b71cc9
+typing-inspection @ file:///C:/veighna_studio/install/typing_inspection-0.4.2-py3-none-any.whl#sha256=4ed1cacbdc298c220f1bd249ed5287caa16f34d44ef4e9c3d0cbad5b521545e7
+typing_extensions @ file:///C:/veighna_studio/install/typing_extensions-4.14.1-py3-none-any.whl#sha256=d1e1e3b58374dc93031d6eda2420a48ea44a36c2b4766a4fdeb3710755731d76
+tzdata @ file:///C:/veighna_studio/install/tzdata-2023.3-py2.py3-none-any.whl#sha256=7e65763eef3120314099b6939b5546db7adce1e7d6f2e179e3df563c70511eda
+tzlocal @ file:///C:/veighna_studio/install/tzlocal-5.3.1-py3-none-any.whl#sha256=eb1a66c3ef5847adf7a834f1be0800581b683b5608e74f86ecbcef8ab91bb85d
+uri-template @ file:///C:/veighna_studio/install/uri_template-1.3.0-py3-none-any.whl#sha256=a44a133ea12d44a0c0f06d7d42a52d71282e77e2f937d8abd5655b8d56fc1363
+urllib3 @ file:///C:/veighna_studio/install/urllib3-2.5.0-py3-none-any.whl#sha256=e6b01673c0fa6a13e374b50871808eb3bf7046c4b125b216f6bf1cc604cff0dc
+uuid_utils==0.13.0
+uvicorn @ file:///C:/veighna_studio/install/uvicorn-0.38.0-py3-none-any.whl#sha256=48c0afd214ceb59340075b4a052ea1ee91c16fbc2a9b1469cca0e54566977b02
+veighna_station @ file:///C:/veighna_studio/install/veighna_station-4.2.0-py313-none-any.whl#sha256=5341eed6fd3ba49a17a390180f96cc7f86d1b7c8cbb6445e5a993a79dd490579
+vnpy @ file:///C:/veighna_studio/install/vnpy-4.2.0-py3-none-any.whl#sha256=f3cc272f8dad4193c44e96879fa17e72fb4b5fc1d384bf331af5217e986b6be9
+vnpy-mysql @ file:///C:/veighna_studio/install/vnpy_mysql-1.0.5-py3-none-any.whl#sha256=aa66f63643ebc6ca9010d6fbf19366e3173cc130e4d9b8676aef27246c4673e0
+vnpy-postgresql @ file:///C:/veighna_studio/install/vnpy_postgresql-1.0.3-py3-none-any.whl#sha256=274351f716c5e956fe1d0d238e3101b9c6090b84134a026a0e1def81211e5895
+vnpy-sqlite @ file:///C:/veighna_studio/install/vnpy_sqlite-1.0.1-py3-none-any.whl#sha256=914fdff01047e95ff8e78d466c880c0d272d36f45aebd6ee2c11659ec075a285
+vnpy-tinysoft @ file:///C:/veighna_studio/install/vnpy_tinysoft-2023.2.24-py3-none-any.whl#sha256=fe58f72b8ad796877b59cc2d2da303568b2ca70b4509881e3913c086e09558a2
+vnpy_akshare_adapter==1.0.0
+vnpy_algotrading @ file:///C:/veighna_studio/install/vnpy_algotrading-1.1.0-py3-none-any.whl#sha256=f2649bfb289cadc4d8abeb8ceac477b9603cd9b6ec65c4348afae02e112be294
+vnpy_chartwizard @ file:///C:/veighna_studio/install/vnpy_chartwizard-1.1.0-py3-none-any.whl#sha256=0ff775d65256b68aba283fb87c21229557bb62630a59e0668c26cf27057bdfe2
+vnpy_ctabacktester @ file:///C:/veighna_studio/install/vnpy_ctabacktester-1.2.0-py3-none-any.whl#sha256=1cab865aced1b683574f61c654cd027ed64fe6ff429232cb67a8c58d584c6b94
+vnpy_ctastrategy @ file:///C:/veighna_studio/install/vnpy_ctastrategy-1.3.3-py3-none-any.whl#sha256=38972780d884d95b0b3d7ed25c4fe54db5f94ac579e451512420da547a2f7d25
+vnpy_ctp @ file:///C:/veighna_studio/install/vnpy_ctp-6.7.11.1-cp313-cp313-win_amd64.whl#sha256=a5e6f885eba35021ed8bd5560d410aaeb2635505f0b203375c5055025d055a9f
+vnpy_ctptest @ file:///C:/veighna_studio/install/vnpy_ctptest-6.7.2.1-cp313-cp313-win_amd64.whl#sha256=29434c25f4ba20b60077cf14f3f29339293ede95ea4e89a6a0f56eed21b79122
+vnpy_da @ file:///C:/veighna_studio/install/vnpy_da-1.18.2.5.2-py3-none-any.whl#sha256=3f06c485b7e76266193c5d3782f656b8a8f1e0a7a6d728ac5339223a93e408c5
+vnpy_datamanager @ file:///C:/veighna_studio/install/vnpy_datamanager-1.2.0-py3-none-any.whl#sha256=6720d5581242ed45e6c83549e641160d88f6cce28d9579a2a5551c3609c28041
+vnpy_datarecorder @ file:///C:/veighna_studio/install/vnpy_datarecorder-1.1.1-py3-none-any.whl#sha256=1f54f1f11008c74a2631e74f2b9efba7c1aad72acdedc8b25a6af626b2e7772e
+vnpy_excelrtd @ file:///C:/veighna_studio/install/vnpy_excelrtd-1.1.0-py3-none-any.whl#sha256=7e0f117fa4b23195d5a232045abebbc6b746b63e6c3f25d0283c1bd0db1fecef
+vnpy_femas @ file:///C:/veighna_studio/install/vnpy_femas-1.0.3-cp313-cp313-win_amd64.whl#sha256=6ce1f1771b91a889777e4b76b7d70ae10862d0a0d74446e0ab472c476c1ec222
+vnpy_gm @ file:///C:/veighna_studio/install/vnpy_gm-1.2.0-py3-none-any.whl#sha256=ebcb92da09598a900f3b8be6d629b79a1dd4cb6195c14012f4700faeae2e9905
+vnpy_hts @ file:///C:/veighna_studio/install/vnpy_hts-1.0.3-cp313-cp313-win_amd64.whl#sha256=2fa7b0da3df92c35329cf13856c9688be335e06be666699a8b4aecd2e3ddaff4
+vnpy_ib @ file:///C:/veighna_studio/install/vnpy_ib-10.30.1.1-py3-none-any.whl#sha256=33ad0657a348edd6141b4b17c1f28a098f5b905fde83480edea4caabf6605763
+vnpy_ifind @ file:///C:/veighna_studio/install/vnpy_ifind-1.1.0-py3-none-any.whl#sha256=d801b820f71f557b25ef06c8911ea51736bb88370558d1bcadcae9d7b5264eed
+vnpy_jees @ file:///C:/veighna_studio/install/vnpy_jees-6.6.1.1-cp313-cp313-win_amd64.whl#sha256=2c7ecd3e56c62d1ebc522d469db0dab694a270f094e66257fa7d3558950ee1da
+vnpy_lstar @ file:///C:/veighna_studio/install/vnpy_lstar-6.3.15.1-cp313-cp313-win_amd64.whl#sha256=194bcce77b62f38944ccf566a823bb8a537324dbeebd1cd1699b63e6c3e65b04
+vnpy_mcdata @ file:///C:/veighna_studio/install/vnpy_mcdata-1.0.5-py3-none-any.whl#sha256=5fd2da710d8204edadd69fa2abf79533dced761a3c4a07ca7a25eac7f06095c0
+vnpy_mini @ file:///C:/veighna_studio/install/vnpy_mini-1.6.3.3-cp313-cp313-win_amd64.whl#sha256=79a6fd5654ecac9074536c31c31237be3bcc022a9c0ada51cc715153a0b18d56
+vnpy_mongodb @ file:///C:/veighna_studio/install/vnpy_mongodb-1.1.0-py3-none-any.whl#sha256=ba9707ad9edbee58164385313a3c3127821c2980d92109c88f546f495ba2e319
+vnpy_optionmaster @ file:///C:/veighna_studio/install/vnpy_optionmaster-1.2.2-py3-none-any.whl#sha256=25db160619d5c479edbd8d6008b0ae7064be0335c6dcf16e0613bcde7858dd2a
+vnpy_paperaccount @ file:///C:/veighna_studio/install/vnpy_paperaccount-1.0.6-py3-none-any.whl#sha256=c3ae0cb402dd2ac4ed0357530962f59c0f9be7f8d1c016c8390a0bc817cf6005
+vnpy_polygon @ file:///C:/veighna_studio/install/vnpy_polygon-1.0.0-py3-none-any.whl#sha256=9c3d6817ac2e927272c5260697e8d700bfdbe08277440a0255c1fd00e61ae6c9
+vnpy_portfoliomanager @ file:///C:/veighna_studio/install/vnpy_portfoliomanager-1.1.0-py3-none-any.whl#sha256=c4cacbc1abfe072313070765d1481161fb52db8375ab396c4c75d396b30d74ec
+vnpy_portfoliostrategy @ file:///C:/veighna_studio/install/vnpy_portfoliostrategy-1.2.2-py3-none-any.whl#sha256=abad6ca6c602ef3959cdec96fdd45ab0333dd7bd79f19bd6328f9a73a90f78e3
+vnpy_riskmanager @ file:///C:/veighna_studio/install/vnpy_riskmanager-2.0.0-cp313-cp313-win_amd64.whl#sha256=43934f4f319b06c1fde7b644b88c9b34f495ef26d0221ec843d42cfa183fdb8e
+vnpy_rohon @ file:///C:/veighna_studio/install/vnpy_rohon-6.5.1.22-cp313-cp313-win_amd64.whl#sha256=7f6a52d57ca8c611167aed50a435f94827e38f22bcd383892d3cf725f45d515e
+vnpy_rpcservice @ file:///C:/veighna_studio/install/vnpy_rpcservice-1.1.0-py3-none-any.whl#sha256=7e64ca5a8d5b2b99cd6e35246bf015bc386a7485f56ca4847d15e032bd798541
+vnpy_rqdata @ file:///C:/veighna_studio/install/vnpy_rqdata-3.2.14.1-py3-none-any.whl#sha256=50340ceefabccb3cf616eade1b5f491973265063ae2db62034b77eaa9d9c1fce
+vnpy_scripttrader @ file:///C:/veighna_studio/install/vnpy_scripttrader-1.1.1-py3-none-any.whl#sha256=fece14890f0486f3324a0460679b16ccbc8fc5eb366e6d7b08205af7b3f8122a
+vnpy_sopt @ file:///C:/veighna_studio/install/vnpy_sopt-3.7.1.2-cp313-cp313-win_amd64.whl#sha256=139827746bc30fa0c21a84f7e064da72f5096106bee9eda5bffd749f232965c6
+vnpy_spreadtrading @ file:///C:/veighna_studio/install/vnpy_spreadtrading-1.3.1-py3-none-any.whl#sha256=cdd16041e9bb2a8c28272f08437f5dcdd84a16ea4c77d6a96c1139e39163e6bb
+vnpy_taos @ file:///C:/veighna_studio/install/vnpy_taos-1.1.1-py3-none-any.whl#sha256=a403967d7d57a726dec61318b6cdb56e9c087986d6281e8be0a0f67baf72b351
+vnpy_tap @ file:///C:/veighna_studio/install/vnpy_tap-9.4.11-cp313-cp313-win_amd64.whl#sha256=e79a6b30fed91a850cba4db8bc2f3908e9b3dae9d59746162b53ce5c2a7e6d75
+vnpy_tora @ file:///C:/veighna_studio/install/vnpy_tora-2025.4.16-cp313-cp313-win_amd64.whl#sha256=108eec234311dd48a5489872de10bfa3cf02c4b6d413475020805581a00942d0
+vnpy_tqsdk @ file:///C:/veighna_studio/install/vnpy_tqsdk-3.8.6.0-py3-none-any.whl#sha256=5f9f6f76f821a9568dd19353517820427efd0d32cace8aaf853566a4015c0fc3
+vnpy_tts @ file:///C:/veighna_studio/install/vnpy_tts-6.7.2.3-cp313-cp313-win_amd64.whl#sha256=fbb599b2203979d6023ebe612de84871394613d308e17ff656bf0b33dd1b5a21
+vnpy_tushare @ file:///C:/veighna_studio/install/vnpy_tushare-1.4.21.0-py3-none-any.whl#sha256=3e947e6a31a52ce5bcba9a311a83240f22b77ab729b4d2a7d015a7562d3f42f0
+vnpy_uft @ file:///C:/veighna_studio/install/vnpy_uft-3.7.4.1004.2-cp313-cp313-win_amd64.whl#sha256=2cb69d97fadd3c372084f6c9aa475af29f3ebdc9d8e749565eec3acb615bd036
+vnpy_webtrader @ file:///C:/veighna_studio/install/vnpy_webtrader-1.1.0-py3-none-any.whl#sha256=cf5b81268767ca20069b2073a32abacfe2eac21c3b09486dec47abc171ff0b16
+vnpy_wind @ file:///C:/veighna_studio/install/vnpy_wind-1.1.0-py3-none-any.whl#sha256=02c7b49c775e0d525b6bc14f281a7c5383d8e02cd0d851e3888de29727e8df52
+vnpy_xt @ file:///C:/veighna_studio/install/vnpy_xt-1.4.6-py3-none-any.whl#sha256=f0cee2834cbddaa849f2432f4f3119e61d10937f51b6e2cb5ecdcbff69142a4c
+vnpy_xtp @ file:///C:/veighna_studio/install/vnpy_xtp-2.2.32.2.3-cp313-cp313-win_amd64.whl#sha256=3651b82e8eb128a32b06b06470dbef10dd42a9a35bcdba3e38b87ca77d18c03d
+wcwidth @ file:///C:/veighna_studio/install/wcwidth-0.2.14-py2.py3-none-any.whl#sha256=a7bb560c8aee30f9957e5f9895805edd20602f2d7f720186dfd906e82b4982e1
+webcolors @ file:///C:/veighna_studio/install/webcolors-25.10.0-py3-none-any.whl#sha256=032c727334856fc0b968f63daa252a1ac93d33db2f5267756623c210e57a4f1d
+webencodings @ file:///C:/veighna_studio/install/webencodings-0.5.1-py2.py3-none-any.whl#sha256=a0af1213f3c2226497a97e2b3aa01a7e4bee4f403f95be16fc9acd2947514a78
+websocket-client @ file:///C:/veighna_studio/install/websocket_client-1.9.0-py3-none-any.whl#sha256=af248a825037ef591efbf6ed20cc5faa03d3b47b9e5a2230a529eeee1c1fc3ef
+websockets @ file:///C:/veighna_studio/install/websockets-15.0.1-cp313-cp313-win_amd64.whl#sha256=e09473f095a819042ecb2ab9465aee615bd9c2028e4ef7d933600a8401c79561
+wheel @ file:///C:/veighna_studio/install/wheel-0.46.1-py3-none-any.whl#sha256=f796f65d72750ccde090663e466d0ca37cd72b62870f7520b96d34cdc07d86d8
+win-inet-pton @ file:///C:/veighna_studio/install/win_inet_pton-1.1.0-py2.py3-none-any.whl#sha256=eaf0193cbe7152ac313598a0da7313fb479f769343c0c16c5308f64887dc885b
+win32_setctime @ file:///C:/veighna_studio/install/win32_setctime-1.2.0-py3-none-any.whl#sha256=95d644c4e708aba81dc3704a116d8cbc974d70b3bdb8be1d150e36be6e9d1390
+WMI @ file:///C:/veighna_studio/install/WMI-1.5.1-py2.py3-none-any.whl#sha256=1d6b085e5c445141c475476000b661f60fff1aaa19f76bf82b7abb92e0ff4942
+xlrd==2.0.2
+xlsxwriter==3.2.9
+xtquant @ file:///C:/veighna_studio/install/xtquant-250516.1.1-py3-none-any.whl#sha256=f8461b0a295fa9b13ead33acca8675f7961fe1b4488a319b5549853142a89014
+xxhash==3.6.0
+yarl @ file:///C:/veighna_studio/install/yarl-1.22.0-cp313-cp313-win_amd64.whl#sha256=47743b82b76d89a1d20b83e60d5c20314cbd5ba2befc9cda8f28300c4a08ed4d
+zipp @ file:///C:/veighna_studio/install/zipp-3.23.0-py3-none-any.whl#sha256=071652d6115ed432f5ce1d34c336c0adfd6a884660d1e9712a256d3d3bd4b14e
+zstandard @ file:///C:/veighna_studio/install/zstandard-0.25.0-cp313-cp313-win_amd64.whl#sha256=1f830a0dac88719af0ae43b8b2d6aef487d437036468ef3c2ea59c51f9d55fd5

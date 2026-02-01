@@ -1,0 +1,49 @@
+{# AWS S3 Bucket Terraform Template #}
+resource "aws_s3_bucket" "{{ resource_name | replace('-', '_') }}" {
+  bucket = "{{ properties.BucketName | default(resource_name) }}"
+
+  tags = merge(
+    {
+      Name        = "{{ resource_name }}"
+      Environment = "{{ properties.Environment | default('') }}"
+      Project     = "{{ properties.Project | default('') }}"
+    },
+    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
+  )
+}
+
+{% if properties.Versioning %}
+resource "aws_s3_bucket_versioning" "{{ resource_name | replace('-', '_') }}" {
+  bucket = aws_s3_bucket.{{ resource_name | replace('-', '_') }}.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+{% endif %}
+
+{% if properties.Encryption %}
+resource "aws_s3_bucket_server_side_encryption_configuration" "{{ resource_name | replace('-', '_') }}" {
+  bucket = aws_s3_bucket.{{ resource_name | replace('-', '_') }}.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm     = "{{ properties.EncryptionAlgorithm | default('AES256') }}"
+      {% if properties.KmsKeyId %}
+      kms_master_key_id = "{{ properties.KmsKeyId }}"
+      {% endif %}
+    }
+  }
+}
+{% endif %}
+
+{% if properties.PublicAccess == false %}
+resource "aws_s3_bucket_public_access_block" "{{ resource_name | replace('-', '_') }}" {
+  bucket = aws_s3_bucket.{{ resource_name | replace('-', '_') }}.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+{% endif %}

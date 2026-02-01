@@ -1,0 +1,16 @@
+{# AWS VPC Terraform Template #}
+resource "aws_vpc" "{{ resource_name | replace('-', '_') }}" {
+  cidr_block           = "{{ properties.CidrBlock }}"
+  enable_dns_hostnames = {{ properties.EnableDnsHostnames | default('true') | lower }}
+  enable_dns_support   = {{ properties.EnableDnsSupport | default('true') | lower }}
+  instance_tenancy     = "{{ properties.InstanceTenancy | default('default') }}"
+
+  tags = merge(
+    {
+      Name        = "{{ resource_name }}"
+      Environment = "{{ properties.Environment | default('') }}"
+      Project     = "{{ properties.Project | default('') }}"
+    },
+    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
+  )
+}

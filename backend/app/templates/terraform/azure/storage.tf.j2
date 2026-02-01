@@ -1,0 +1,41 @@
+{# Azure Storage Account Terraform Template #}
+{% set resource_group_ref = "azurerm_resource_group." + properties.ResourceGroup | replace('-', '_') + ".name" if not resource.skip_resource_group_creation else "\"" + properties.ResourceGroup + "\"" %}
+resource "azurerm_storage_account" "{{ resource_name | replace('-', '_') }}" {
+  name                     = "{{ properties.StorageAccountName | default(resource_name) | replace('-', '') | lower }}"
+  resource_group_name      = {{ resource_group_ref }}
+  location                 = "{{ properties.Location }}"
+  account_tier             = "{{ properties.AccountTier | default('Standard') }}"
+  account_replication_type = "{{ properties.ReplicationType | default('LRS') }}"
+  
+  {% if properties.EnableHttpsTrafficOnly is defined %}
+  https_traffic_only_enabled = {{ properties.EnableHttpsTrafficOnly | lower }}
+  {% else %}
+  https_traffic_only_enabled = true
+  {% endif %}
+
+  {% if properties.MinTlsVersion %}
+  min_tls_version = "{{ properties.MinTlsVersion }}"
+  {% endif %}
+
+  {% if properties.AllowBlobPublicAccess is defined %}
+  allow_nested_items_to_be_public = {{ properties.AllowBlobPublicAccess | lower }}
+  {% endif %}
+
+  tags = merge(
+    {
+      Environment = "{{ properties.Environment | default('') }}"
+      Project     = "{{ properties.Project | default('') }}"
+    },
+    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
+  )
+}
+
+{% if properties.BlobContainers %}
+{% for container in properties.BlobContainers %}
+resource "azurerm_storage_container" "{{ resource_name | replace('-', '_') }}_{{ container.name | replace('-', '_') }}" {
+  name                  = "{{ container.name }}"
+  storage_account_name  = azurerm_storage_account.{{ resource_name | replace('-', '_') }}.name
+  container_access_type = "{{ container.access_type | default('private') }}"
+}
+{% endfor %}
+{% endif %}

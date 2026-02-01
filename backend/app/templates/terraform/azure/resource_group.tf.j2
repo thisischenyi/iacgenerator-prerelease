@@ -1,0 +1,16 @@
+{# Azure Resource Group Terraform Template #}
+{# Note: Resource Group is often created separately, but we include it for completeness #}
+{% if not resource.skip_resource_group_creation %}
+resource "azurerm_resource_group" "{{ resource_name | replace('-', '_') }}" {
+  name     = "{{ resource_name }}"
+  location = "{{ properties.Location }}"
+
+  tags = merge(
+    {
+      Environment = "{{ properties.Environment | default('') }}"
+      Project     = "{{ properties.Project | default('') }}"
+    },
+    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
+  )
+}
+{% endif %}

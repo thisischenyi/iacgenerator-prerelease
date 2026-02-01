@@ -1,0 +1,112 @@
+================================================================================
+COMPLETE FLOW TEST: Natural Language Tag Addition
+================================================================================
+
+STEP 1: Initial VM Creation (no Project tag)
+--------------------------------------------------------------------------------
+Initial resource has Tags: False
+
+STEP 2: User says: Tags: {{"Project": "MyProject", "Environment": "Test"}}
+--------------------------------------------------------------------------------
+Calling information_collector...
+
+================================================================================
+[AGENT: InformationCollector] STARTED
+[AGENT: InformationCollector] Session ID: flow-test-001
+[AGENT: InformationCollector] Workflow State: information_collection
+[AGENT: InformationCollector] Current resources: 1
+[AGENT: InformationCollector] Information complete: False
+[AGENT: InformationCollector] Using 4 recent messages for context
+[AGENT: InformationCollector] Calling LLM to validate information...
+[AGENT: InformationCollector] LLM response received (1292 chars)
+[AGENT: InformationCollector] Existing resources: 1
+[AGENT: InformationCollector] New resources from LLM: 1
+[AGENT: InformationCollector] Existing resource types: ['azure_vm']
+[AGENT: InformationCollector] Processing new resource type: AzureVM (normalized: azurevm)
+[AGENT: InformationCollector]   Adding as new resource
+[AGENT: InformationCollector] Final resource count: 2
+[AGENT: InformationCollector] Updated resources count: 2
+[AGENT: InformationCollector] Resources structure:
+[
+  {
+    "type": "azure_vm",
+    "resource_type": "azure_vm",
+    "name": "vm-1",
+    "resource_name": "vm-1",
+    "cloud_platform": "azure",
+    "properties": {
+      "ResourceName": "vm-1",
+      "ResourceGroup": "my-rg",
+      "Location": "China East 2",
+      "VMSize": "Standard_B2s",
+      "AdminUsername": "azureuser",
+      "OSType": "Linux",
+      "ImagePublisher": "Canonical",
+      "ImageOffer": "UbuntuServer",
+      "ImageSKU": "18.04-LTS",
+      "AuthenticationType": "Password",
+      "AdminPassword": "SecurePass123!"
+    }
+  },
+  {
+    "type": "azurevm",
+    "name": "azure-vm",
+    "properties": {
+      "ResourceGroup": "my-rg",
+      "Location": "China East 2",
+      "VMSize": "Standard_B2s",
+      "Tags": {
+        "Project": "MyProject",
+        "Environment": "Test"
+      }
+    },
+    "resource_type": "azurevm",
+    "cloud_platform": "azure"
+  }
+]
+[AGENT: InformationCollector] Missing fields: ['AdminUsername', 'OSType', 'ImagePublisher', 'ImageOffer', 'ImageSKU', 'AuthenticationType', 'AdminPassword or SshPublicKey']
+[AGENT: InformationCollector] Waiting for more user input
+[AGENT: InformationCollector] AI Response: 要创建 Azure 虚拟机，我还需要以下关键信息：
+
+**必须提供：**
+*   **AdminUsername (管理员用户名)**: 例如 `azureuser`
+*   **OSType (操作...
+[AGENT: InformationCollector] FINISHED
+================================================================================
+
+
+CHECKING RESULTS:
+--------------------------------------------------------------------------------
+Resource has Tags field: False
+Tags value: {}
+[PROBLEM] Project tag NOT found!
+
+STEP 3: Compliance Check
+--------------------------------------------------------------------------------
+
+================================================================================
+[AGENT: ComplianceChecker] STARTED
+[AGENT: ComplianceChecker] Session ID: test
+[AGENT: ComplianceChecker] Resources to check: 2
+[AGENT: ComplianceChecker] Found 2 enabled policies
+[AGENT: ComplianceChecker] Checking 2 policies against resources...
+[AGENT: ComplianceChecker] Checking policy: 禁止互联网访问服务器234端口
+[AGENT: ComplianceChecker]   - Block ports policy: [234]
+[AGENT: ComplianceChecker] Checking policy: 必须打上Project标签
+[AGENT: ComplianceChecker]   - Required tags policy: ['Project']
+[AGENT: ComplianceChecker]   - Checking tags for resource vm-1
+[AGENT: ComplianceChecker]   - Resource tags: {}
+[AGENT: ComplianceChecker]   - VIOLATION: Missing required tag(s): Project
+[AGENT: ComplianceChecker]   - Checking tags for resource azure-vm
+[AGENT: ComplianceChecker]   - Resource tags: {'Project': 'MyProject', 'Environment': 'Test'}
+[AGENT: ComplianceChecker]   - PASSED: All required tags present
+[AGENT: ComplianceChecker] Compliance check complete
+[AGENT: ComplianceChecker] Violations: 1
+[AGENT: ComplianceChecker] Warnings: 0
+[AGENT: ComplianceChecker]   - vm-1: Missing required tag(s): Project
+[AGENT: ComplianceChecker] Result: FAILED
+[AGENT: ComplianceChecker] FINISHED
+================================================================================
+
+Result: FAILED
+  vm-1: Missing required tag(s): Project

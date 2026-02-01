@@ -1,0 +1,21 @@
+{# Azure Virtual Network Terraform Template #}
+{% set resource_group_ref = "azurerm_resource_group." + properties.ResourceGroup | replace('-', '_') + ".name" if not resource.skip_resource_group_creation else "\"" + properties.ResourceGroup + "\"" %}
+resource "azurerm_virtual_network" "{{ resource_name | replace('-', '_') }}" {
+  name                = "{{ resource_name }}"
+  location            = "{{ properties.Location }}"
+  resource_group_name = {{ resource_group_ref }}
+  address_space       = {% if properties.AddressSpace is string %}{{ properties.AddressSpace.split(',') | map('trim') | list | tojson }}{% else %}{{ properties.AddressSpace | tojson }}{% endif %}
+
+  {% if properties.DnsServers %}
+  dns_servers = {% if properties.DnsServers is string %}{{ properties.DnsServers.split(',') | map('trim') | list | tojson }}{% else %}{{ properties.DnsServers | tojson }}{% endif %}
+  {% endif %}
+
+  tags = merge(
+    {
+      Name        = "{{ resource_name }}"
+      Environment = "{{ properties.Environment | default('') }}"
+      Project     = "{{ properties.Project | default('') }}"
+    },
+    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
+  )
+}

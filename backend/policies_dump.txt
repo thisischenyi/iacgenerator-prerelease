@@ -1,0 +1,16 @@
+Total Policies found: 2
+--------------------------------------------------
+ID: 1
+Name: 禁止互联网访问服务器234端口
+Description: 
+Enabled: True
+Natural Language Rule: 禁止互联网访问服务器234端口
+Executable Rule: {'block_ports': [234]}
+--------------------------------------------------
+ID: 2
+Name: 必须打上project标签
+Description: 
+Enabled: True
+Natural Language Rule: 创建的资源必须包含project标签
+Executable Rule: {'required_tags': ['project']}
+--------------------------------------------------

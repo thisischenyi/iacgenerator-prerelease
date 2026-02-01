@@ -1,0 +1,116 @@
+{# AWS RDS Instance Terraform Template #}
+{% set vpc_exists = properties.VPCExists | default('n') | lower %}
+{% set sg_exists = properties.SecurityGroupsExist | default('n') | lower %}
+{% set vpc = properties.VPC %}
+{% set security_groups = properties.SecurityGroups %}
+{% set subnets = properties.SubnetGroup_Subnets %}
+
+{% if vpc_exists == 'n' or sg_exists == 'n' %}
+resource "aws_db_subnet_group" "{{ resource_name | replace('-', '_') }}" {
+  name       = "{{ resource_name }}-subnet-group"
+  subnet_ids = [
+    {% if subnets %}
+      {% if subnets is string %}
+        {% for subnet in subnets.split(',') %}
+          {% set subnet_exists = properties.SubnetExists | default('n') | lower %}
+          {% if subnet_exists == 'y' %}
+    "{{ subnet.strip() }}"{{ "," if not loop.last else "" }}
+          {% else %}
+    aws_subnet.{{ subnet.strip() | replace('-', '_') }}.id{{ "," if not loop.last else "" }}
+          {% endif %}
+        {% endfor %}
+      {% elif subnets is iterable %}
+        {% for subnet in subnets %}
+          {% set subnet_exists = properties.SubnetExists | default('n') | lower %}
+          {% if subnet_exists == 'y' %}
+    "{{ subnet.strip() }}"{{ "," if not loop.last else "" }}
+          {% else %}
+    aws_subnet.{{ subnet.strip() | replace('-', '_') }}.id{{ "," if not loop.last else "" }}
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+    {% endif %}
+  ]
+
+  tags = {
+    Name        = "{{ resource_name }}-subnet-group"
+    Environment = "{{ properties.Environment }}"
+    Project     = "{{ properties.Project }}"
+  }
+}
+{% endif %}
+
+resource "aws_db_instance" "{{ resource_name | replace('-', '_') }}" {
+  identifier     = "{{ resource_name }}"
+  engine         = "{{ properties.Engine }}"
+  engine_version = "{{ properties.EngineVersion }}"
+  instance_class = "{{ properties.InstanceClass }}"
+  
+  allocated_storage     = {{ properties.AllocatedStorage }}
+  storage_type          = "{{ properties.StorageType | default('gp3') }}"
+  storage_encrypted     = {{ properties.StorageEncrypted | default('true') | lower }}
+  {% if properties.KMS_Key_ID %}
+  kms_key_id            = "{{ properties.KMS_Key_ID }}"
+  {% endif %}
+  
+  db_name  = "{{ properties.DBName }}"
+  username = "{{ properties.MasterUsername }}"
+  password = "{{ properties.MasterPassword }}"  # WARNING: Store in secrets manager in production
+  
+  {% if vpc_exists == 'n' or sg_exists == 'n' %}
+  db_subnet_group_name   = aws_db_subnet_group.{{ resource_name | replace('-', '_') }}.name
+  {% else %}
+  db_subnet_group_name   = "{{ resource_name }}-subnet-group"
+  {% endif %}
+  
+  vpc_security_group_ids = [
+    {% if security_groups %}
+      {% if sg_exists == 'y' %}
+        {% if security_groups is string %}
+          {% for sg in security_groups.split(',') %}
+    "{{ sg.strip() }}"{{ "," if not loop.last else "" }}
+          {% endfor %}
+        {% elif security_groups is iterable %}
+          {% for sg in security_groups %}
+    "{{ sg.strip() }}"{{ "," if not loop.last else "" }}
+          {% endfor %}
+        {% endif %}
+      {% else %}
+        {% if security_groups is string %}
+          {% for sg in security_groups.split(',') %}
+    aws_security_group.{{ sg.strip() | replace('-', '_') }}.id{{ "," if not loop.last else "" }}
+          {% endfor %}
+        {% elif security_groups is iterable %}
+          {% for sg in security_groups %}
+    aws_security_group.{{ sg.strip() | replace('-', '_') }}.id{{ "," if not loop.last else "" }}
+          {% endfor %}
+        {% endif %}
+      {% endif %}
+    {% endif %}
+  ]
+  
+  multi_az               = {{ properties.MultiAZ | default('false') | lower }}
+  publicly_accessible    = {{ properties.PubliclyAccessible | default('false') | lower }}
+  
+  backup_retention_period = {{ properties.BackupRetentionPeriod | default(7) }}
+  {% if properties.PreferredBackupWindow %}
+  preferred_backup_window = "{{ properties.PreferredBackupWindow }}"
+  {% endif %}
+  {% if properties.PreferredMaintenanceWindow %}
+  preferred_maintenance_window = "{{ properties.PreferredMaintenanceWindow }}"
+  {% endif %}
+  
+  auto_minor_version_upgrade = {{ properties.AutoMinorVersionUpgrade | default('true') | lower }}
+  deletion_protection        = {{ properties.DeletionProtection | default('false') | lower }}
+  
+  skip_final_snapshot = true  # Set to false in production
+
+  tags = merge(
+    {
+      Name        = "{{ resource_name }}"
+      Environment = "{{ properties.Environment }}"
+      Project     = "{{ properties.Project }}"
+    },
+    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
+  )
+}

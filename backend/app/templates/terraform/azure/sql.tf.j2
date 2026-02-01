@@ -1,0 +1,71 @@
+{# Azure SQL Database Terraform Template #}
+{% set resource_group_ref = "azurerm_resource_group." + properties.ResourceGroup | replace('-', '_') + ".name" if not resource.skip_resource_group_creation else "\"" + properties.ResourceGroup + "\"" %}
+{% set vnet_exists = properties.VNetExists | default('n') | lower %}
+{% set subnet_exists = properties.SubnetExists | default('n') | lower %}
+{% set vnet_ref = properties.VNet %}
+{% set subnet_ref = properties.Subnet %}
+{% if vnet_exists == 'y' %}
+  {% set vnet_name_ref = "\"" + vnet_ref + "\"" %}
+{% else %}
+  {% set vnet_name_ref = "azurerm_virtual_network." + vnet_ref | replace('-', '_') + ".name" %}
+{% endif %}
+{% if subnet_exists == 'y' %}
+  {% set subnet_id_ref = "\"" + subnet_ref + "\"" %}
+{% else %}
+  {% set subnet_id_ref = "azurerm_subnet." + subnet_ref | replace('-', '_') + ".id" %}
+{% endif %}
+resource "azurerm_mssql_server" "{{ resource_name | replace('-', '_') }}_server" {
+  name                         = "{{ properties.ServerName | default(resource_name) | replace('-', '') | lower }}"
+  resource_group_name          = {{ resource_group_ref }}
+  location                     = "{{ properties.Location }}"
+  version                      = "{{ properties.SQLVersion | default('12.0') }}"
+  administrator_login          = "{{ properties.ServerAdminLogin }}"
+  administrator_login_password = "{{ properties.ServerAdminPassword }}"
+  minimum_tls_version          = "{{ properties.MinimalTLSVersion | default('1.2') }}"
+
+  {% if properties.PublicNetworkAccess is defined %}
+  public_network_access_enabled = {{ properties.PublicNetworkAccess | lower }}
+  {% endif %}
+
+  tags = merge(
+    {
+      Environment = "{{ properties.Environment | default('') }}"
+      Project     = "{{ properties.Project | default('') }}"
+    },
+    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
+  )
+}
+
+resource "azurerm_mssql_database" "{{ resource_name | replace('-', '_') }}" {
+  name           = "{{ resource_name }}"
+  server_id      = azurerm_mssql_server.{{ resource_name | replace('-', '_') }}_server.id
+  collation      = "{{ properties.Collation | default('SQL_Latin1_General_CP1_CI_AS') }}"
+  license_type   = "{{ properties.LicenseType | default('LicenseIncluded') }}"
+  max_size_gb    = {{ properties.MaxSizeGB | default(2) }}
+  read_scale     = {{ properties.ReadScaleOut | default('false') | lower }}
+  sku_name       = "{{ properties.ServiceObjective | default('S0') }}"
+  zone_redundant = {{ properties.ZoneRedundant | default('false') | lower }}
+
+  {% if properties.ElasticPoolId %}
+  elastic_pool_id = "{{ properties.ElasticPoolId }}"
+  {% endif %}
+
+  tags = merge(
+    {
+      Environment = "{{ properties.Environment | default('') }}"
+      Project     = "{{ properties.Project | default('') }}"
+    },
+    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
+  )
+}
+
+{% if properties.FirewallRules %}
+{% for rule in properties.FirewallRules %}
+resource "azurerm_mssql_firewall_rule" "{{ resource_name | replace('-', '_') }}_{{ rule.name | replace('-', '_') }}" {
+  name             = "{{ rule.name }}"
+  server_id        = azurerm_mssql_server.{{ resource_name | replace('-', '_') }}_server.id
+  start_ip_address = "{{ rule.start_ip }}"
+  end_ip_address   = "{{ rule.end_ip }}"
+}
+{% endfor %}
+{% endif %}

@@ -1,0 +1,9 @@
+Total Policies found: 1
+--------------------------------------------------
+ID: 1
+Name: 禁止互联网访问3456端口
+Description: 
+Enabled: True
+Natural Language Rule: 禁止开放互联网访问服务器3456端口
+Executable Rule: None
+--------------------------------------------------

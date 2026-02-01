@@ -1,0 +1,53 @@
+{# AWS Security Group Terraform Template #}
+{% set vpc_exists = properties.VPCExists | default('n') | lower %}
+{% set vpc = properties.VPC %}
+resource "aws_security_group" "{{ resource_name | replace('-', '_') }}" {
+  name        = "{{ resource_name }}"
+  description = "{{ properties.Description | default('Managed by Terraform') }}"
+  {% if vpc_exists == 'y' %}
+  vpc_id      = "{{ vpc }}"
+  {% else %}
+  vpc_id      = aws_vpc.{{ vpc | replace('-', '_') }}.id
+  {% endif %}
+
+  {% if properties.IngressRules %}
+  {% for rule in properties.IngressRules %}
+  ingress {
+    description = "{{ rule.Description | default(rule.description) | default('') }}"
+    from_port   = {{ rule.FromPort | default(rule.from_port) | default(rule.to_port) | default(rule.port) }}
+    to_port     = {{ rule.ToPort | default(rule.to_port) | default(rule.port) }}
+    protocol    = "{{ rule.Protocol | default(rule.protocol) | default('tcp') }}"
+    cidr_blocks = {{ (rule.CidrBlocks or rule.cidr_blocks or ["0.0.0.0/0"]) | tojson }}
+  }
+  {% endfor %}
+  {% endif %}
+
+  {% if properties.EgressRules %}
+  {% for rule in properties.EgressRules %}
+  egress {
+    description = "{{ rule.Description | default(rule.description) | default('') }}"
+    from_port   = {{ rule.FromPort | default(rule.from_port) | default(0) }}
+    to_port     = {{ rule.ToPort | default(rule.to_port) | default(0) }}
+    protocol    = "{{ rule.Protocol | default(rule.protocol) | default('-1') }}"
+    cidr_blocks = {{ (rule.CidrBlocks or rule.cidr_blocks or ["0.0.0.0/0"]) | tojson }}
+  }
+  {% endfor %}
+  {% else %}
+  # Default: allow all outbound traffic
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  {% endif %}
+
+  tags = merge(
+    {
+      Name        = "{{ resource_name }}"
+      Environment = "{{ properties.Environment | default('') }}"
+      Project     = "{{ properties.Project | default('') }}"
+    },
+    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
+  )
+}
