@@ -23,6 +23,7 @@ import {
   CloudUpload as UploadIcon, 
   Settings as SettingsIcon 
 } from '@mui/icons-material';
+import accentureLogo from '../../assets/accenture-logo.svg';
 
 const drawerWidth = 240;
 
@@ -47,9 +48,12 @@ export default function MainLayout() {
   const drawer = (
     <div>
       <Toolbar sx={{ justifyContent: 'center', py: 2 }}>
-        <Typography variant="h6" noWrap component="div" sx={{ color: theme.palette.primary.main, fontWeight: 'bold' }}>
-          IaC Generator
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <img src={accentureLogo} alt="Accenture" style={{ height: 24 }} />
+          <Typography variant="subtitle1" noWrap component="div" sx={{ color: theme.palette.primary.main, fontWeight: 'bold' }}>
+            Accenture MyCloud
+          </Typography>
+        </Box>
       </Toolbar>
       <List>
         {menuItems.map((item) => (
