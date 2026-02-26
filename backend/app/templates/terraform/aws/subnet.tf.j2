@@ -1,9 +1,13 @@
 {# AWS Subnet Terraform Template #}
 {% set vpc_exists = properties.VPCExists | default('n') | lower %}
 {% set vpc = properties.VPC %}
-{% if vpc_exists == 'y' %}
-resource "aws_subnet" "{{ resource_name | replace('-', '_') }}" {
+{% set safe_res_id = resource_name | safe_id %}
+resource "aws_subnet" "{{ safe_res_id }}" {
+  {% if vpc_exists == 'y' %}
   vpc_id                  = "{{ vpc }}"
+  {% else %}
+  vpc_id                  = aws_vpc.{{ vpc | safe_id }}.id
+  {% endif %}
   cidr_block              = "{{ properties.CIDR_Block }}"
   availability_zone       = "{{ properties.AvailabilityZone }}"
   map_public_ip_on_launch = {{ properties.MapPublicIP | default('false') | lower }}
@@ -18,21 +22,3 @@ resource "aws_subnet" "{{ resource_name | replace('-', '_') }}" {
     {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
   )
 }
-{% else %}
-resource "aws_subnet" "{{ resource_name | replace('-', '_') }}" {
-  vpc_id                  = aws_vpc.{{ vpc | replace('-', '_') }}.id
-  cidr_block              = "{{ properties.CIDR_Block }}"
-  availability_zone       = "{{ properties.AvailabilityZone }}"
-  map_public_ip_on_launch = {{ properties.MapPublicIP | default('false') | lower }}
-
-  tags = merge(
-    {
-      Name        = "{{ resource_name }}"
-      Environment = "{{ properties.Environment | default('') }}"
-      Project     = "{{ properties.Project | default('') }}"
-      Type        = "{{ properties.SubnetType | default('Private') }}"
-    },
-    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
-  )
-}
-{% endif %}

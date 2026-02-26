@@ -1,6 +1,7 @@
 {# Azure Network Security Group Terraform Template #}
-{% set resource_group_ref = "azurerm_resource_group." + properties.ResourceGroup | replace('-', '_') + ".name" if not resource.skip_resource_group_creation else "\"" + properties.ResourceGroup + "\"" %}
-resource "azurerm_network_security_group" "{{ resource_name | replace('-', '_') }}" {
+{% set safe_res_id = resource_name | safe_id %}
+{% set resource_group_ref = properties | azure_rg_ref(resource) %}
+resource "azurerm_network_security_group" "{{ safe_res_id }}" {
   name                = "{{ resource_name }}"
   location            = "{{ properties.Location }}"
   resource_group_name = {{ resource_group_ref }}

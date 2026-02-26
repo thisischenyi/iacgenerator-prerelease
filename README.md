@@ -8,11 +8,28 @@ This project consists of a Python FastAPI backend and a React/Vite frontend. It 
 
 ### Key Features
 - **AI Chat Interface:** Conversational interface to describe infrastructure needs.
-- **Excel Upload:** Bulk generation from structured Excel templates.
+- **Dynamic Excel Support:** 
+    - Supports bulk generation for 18+ resource types.
+    - **Smart Validation:** Automatic conversion of comma-separated strings to HCL lists.
+    - **Safe IDs:** Automatic sanitization of resource names (handles spaces, dashes, and numeric prefixes).
 - **Policy Management:** Define and enforce security policies (e.g., block specific ports).
-- **Code Generation:** Generates `provider.tf`, `variables.tf`, `main.tf`, `outputs.tf`, and `README.md`.
-- **Multi-Cloud Support:** AWS and Azure.
+- **Robust Code Generation:** Generates syntax-validated `provider.tf`, `variables.tf`, `main.tf`, `outputs.tf`, and `README.md` with automatic ID sanitization.
+- **Multi-Cloud Support:** Comprehensive support for AWS and Azure core and network resources.
 - **Automated Deployment:** Directly plan and apply Terraform configurations to cloud environments.
+
+## Supported Resources
+
+The generator currently supports **18** resource types across AWS and Azure:
+
+### AWS
+- **Compute:** EC2
+- **Network:** VPC, Subnet, SecurityGroup, InternetGateway, NATGateway, ElasticIP, LoadBalancer (ALB/NLB), TargetGroup
+- **Storage:** S3, RDS
+
+### Azure
+- **Compute:** Virtual Machine
+- **Network:** VNet, Subnet, NetworkSecurityGroup, PublicIP, NATGateway, LoadBalancer
+- **Storage:** StorageAccount, SQLDatabase
 
 ## Project Structure
 

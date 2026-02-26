@@ -1,0 +1,145 @@
+{# AWS Load Balancer Terraform Template #}
+{% set safe_res_id = resource_name | safe_id %}
+{% set lb_type = properties.Type | default('application') | lower %}
+{% set vpc_ref = "aws_vpc." + properties.VPC | safe_id + ".id" if properties.VPCExists | default('n') | lower not in ['y', 'yes'] else "data.aws_vpc." + properties.VPC | safe_id + ".id" %}
+{% set scheme = properties.Scheme | default('internet-facing') | lower %}
+
+{# Parse subnets list #}
+{% set subnet_names = properties.Subnets if properties.Subnets is iterable and properties.Subnets is not string else (properties.Subnets.split(',') if properties.Subnets is string else []) %}
+
+{# Parse security groups list (ALB only) #}
+{% set sg_names = properties.SecurityGroups if properties.SecurityGroups is iterable and properties.SecurityGroups is not string else (properties.SecurityGroups.split(',') if properties.SecurityGroups is string else []) %}
+
+{# Data source for existing VPC if needed #}
+{% if properties.VPC and properties.VPCExists | default('n') | lower in ['y', 'yes'] %}
+data "aws_vpc" "{{ properties.VPC | safe_id }}" {
+  filter {
+    name   = "tag:Name"
+    values = ["{{ properties.VPC }}"]
+  }
+}
+{% endif %}
+
+{# Data source for existing Subnets if needed #}
+{% for subnet_name in subnet_names %}
+{% set subnet_trimmed = subnet_name.strip() if subnet_name is string else subnet_name %}
+{% if subnet_trimmed and properties.SubnetExists | default('n') | lower in ['y', 'yes'] %}
+data "aws_subnet" "{{ subnet_trimmed | safe_id }}" {
+  filter {
+    name   = "tag:Name"
+    values = ["{{ subnet_trimmed }}"]
+  }
+  vpc_id = {{ vpc_ref }}
+}
+{% endif %}
+{% endfor %}
+
+{# Data source for existing Security Groups if needed (ALB only) #}
+{% for sg_name in sg_names %}
+{% set sg_trimmed = sg_name.strip() if sg_name is string else sg_name %}
+{% if sg_trimmed and properties.SecurityGroupsExist | default('n') | lower in ['y', 'yes'] %}
+data "aws_security_group" "{{ sg_trimmed | safe_id }}" {
+  filter {
+    name   = "tag:Name"
+    values = ["{{ sg_trimmed }}"]
+  }
+  vpc_id = {{ vpc_ref }}
+}
+{% endif %}
+{% endfor %}
+
+resource "aws_lb" "{{ safe_res_id }}" {
+  name               = "{{ resource_name }}"
+  load_balancer_type = "{{ lb_type }}"
+  scheme             = "{{ scheme }}"
+
+  {% if subnet_names %}
+  subnets = [
+    {% for subnet_name in subnet_names %}
+    {% set subnet_trimmed = subnet_name.strip() if subnet_name is string else subnet_name %}
+    {% if subnet_trimmed %}
+    {% if properties.SubnetExists | default('n') | lower in ['y', 'yes'] %}
+    data.aws_subnet.{{ subnet_trimmed | safe_id }}.id
+    {% else %}
+    aws_subnet.{{ subnet_trimmed | safe_id }}.id
+    {% endif %}
+    {% endif %}
+    {% endfor %}
+  ]
+  {% endif %}
+
+  {% if lb_type == 'application' and sg_names %}
+  security_groups = [
+    {% for sg_name in sg_names %}
+    {% set sg_trimmed = sg_name.strip() if sg_name is string else sg_name %}
+    {% if sg_trimmed %}
+    {% if properties.SecurityGroupsExist | default('n') | lower in ['y', 'yes'] %}
+    data.aws_security_group.{{ sg_trimmed | safe_id }}.id
+    {% else %}
+    aws_security_group.{{ sg_trimmed | safe_id }}.id
+    {% endif %}
+    {% endif %}
+    {% endfor %}
+  ]
+  {% endif %}
+
+  {% if properties.IPAddressType %}
+  ip_address_type = "{{ properties.IPAddressType }}"
+  {% endif %}
+
+  {% if lb_type == 'application' and properties.IdleTimeout %}
+  idle_timeout = {{ properties.IdleTimeout }}
+  {% endif %}
+
+  {% if properties.CrossZoneEnabled is defined %}
+  enable_cross_zone_load_balancing = {{ properties.CrossZoneEnabled | lower }}
+  {% endif %}
+
+  {% if properties.DeletionProtection is defined %}
+  enable_deletion_protection = {{ properties.DeletionProtection | lower }}
+  {% endif %}
+
+  tags = merge(
+    {
+      Name        = "{{ resource_name }}"
+      Environment = "{{ properties.Environment | default('') }}"
+      Project     = "{{ properties.Project | default('') }}"
+    },
+    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
+  )
+}
+
+{# Listener Configuration #}
+{% if properties.ListenerProtocol %}
+resource "aws_lb_listener" "{{ resource_name | replace('-', '_') }}_listener" {
+  load_balancer_arn = aws_lb.{{ resource_name | replace('-', '_') }}.arn
+  port              = {{ properties.ListenerPort | default(80) }}
+  protocol          = "{{ properties.ListenerProtocol }}"
+
+  {% if properties.ListenerDefaultAction %}
+  default_action {
+    type             = "{{ properties.ListenerDefaultAction }}"
+    
+    {% if properties.ListenerDefaultAction == 'forward' and properties.ListenerTargetGroup %}
+    {% set tg_ref = "aws_lb_target_group." + properties.ListenerTargetGroup | replace('-', '_') + ".arn" if properties.ListenerTargetGroupExists | default('n') | lower not in ['y', 'yes'] else "data.aws_lb_target_group." + properties.ListenerTargetGroup | replace('-', '_') + ".arn" %}
+    target_group_arn = {{ tg_ref }}
+    {% endif %}
+  }
+  {% else %}
+  default_action {
+    type = "forward"
+    {% if properties.ListenerTargetGroup %}
+    {% set tg_ref = "aws_lb_target_group." + properties.ListenerTargetGroup | replace('-', '_') + ".arn" if properties.ListenerTargetGroupExists | default('n') | lower not in ['y', 'yes'] else "data.aws_lb_target_group." + properties.ListenerTargetGroup | replace('-', '_') + ".arn" %}
+    target_group_arn = {{ tg_ref }}
+    {% endif %}
+  }
+  {% endif %}
+}
+{% endif %}
+
+{# Data source for existing Target Group if referenced #}
+{% if properties.ListenerTargetGroup and properties.ListenerTargetGroupExists | default('n') | lower in ['y', 'yes'] %}
+data "aws_lb_target_group" "{{ properties.ListenerTargetGroup | replace('-', '_') }}" {
+  name = "{{ properties.ListenerTargetGroup }}"
+}
+{% endif %}

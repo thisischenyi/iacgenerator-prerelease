@@ -1,0 +1,64 @@
+{# Azure NAT Gateway Terraform Template #}
+{% set safe_res_id = resource_name | safe_id %}
+{% set resource_group_ref = properties | azure_rg_ref(resource) %}
+
+resource "azurerm_nat_gateway" "{{ safe_res_id }}" {
+  name                    = "{{ resource_name }}"
+  resource_group_name     = {{ resource_group_ref }}
+  location                = "{{ properties.Location }}"
+  sku_name                = "{{ properties.SKU | default('Standard') }}"
+
+  {% if properties.IdleTimeoutMinutes %}
+  idle_timeout_in_minutes = {{ properties.IdleTimeoutMinutes }}
+  {% endif %}
+
+  {% if properties.AvailabilityZone and properties.AvailabilityZone != 'No-Zone' %}
+  zones                   = ["{{ properties.AvailabilityZone }}"]
+  {% endif %}
+
+  tags = merge(
+    {
+      Name        = "{{ resource_name }}"
+      Environment = "{{ properties.Environment | default('') }}"
+      Project     = "{{ properties.Project | default('') }}"
+    },
+    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
+  )
+}
+
+{% if properties.PublicIP %}
+{% set pip_ref = "azurerm_public_ip." + properties.PublicIP | replace('-', '_') + ".id" if properties.PublicIPExists | default('n') | lower not in ['y', 'yes'] else "data.azurerm_public_ip." + properties.PublicIP | replace('-', '_') + ".id" %}
+
+{% if properties.PublicIPExists | default('n') | lower in ['y', 'yes'] %}
+# Data source for existing Public IP
+data "azurerm_public_ip" "{{ properties.PublicIP | replace('-', '_') }}" {
+  name                = "{{ properties.PublicIP }}"
+  resource_group_name = {{ resource_group_ref }}
+}
+{% endif %}
+
+# Associate Public IP with NAT Gateway
+resource "azurerm_nat_gateway_public_ip_association" "{{ resource_name | replace('-', '_') }}_pip" {
+  nat_gateway_id       = azurerm_nat_gateway.{{ resource_name | replace('-', '_') }}.id
+  public_ip_address_id = {{ pip_ref }}
+}
+{% endif %}
+
+{% if properties.Subnet %}
+{% set subnet_ref = "azurerm_subnet." + properties.Subnet | replace('-', '_') + ".id" if properties.SubnetExists | default('n') | lower not in ['y', 'yes'] else "data.azurerm_subnet." + properties.Subnet | replace('-', '_') + ".id" %}
+
+{% if properties.SubnetExists | default('n') | lower in ['y', 'yes'] %}
+# Data source for existing Subnet
+data "azurerm_subnet" "{{ properties.Subnet | replace('-', '_') }}" {
+  name                 = "{{ properties.Subnet }}"
+  virtual_network_name = "{{ properties.VNet | default('') }}"
+  resource_group_name  = {{ resource_group_ref }}
+}
+{% endif %}
+
+# Associate Subnet with NAT Gateway
+resource "azurerm_subnet_nat_gateway_association" "{{ resource_name | replace('-', '_') }}_subnet" {
+  subnet_id      = {{ subnet_ref }}
+  nat_gateway_id = azurerm_nat_gateway.{{ resource_name | replace('-', '_') }}.id
+}
+{% endif %}

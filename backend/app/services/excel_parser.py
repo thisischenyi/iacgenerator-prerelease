@@ -24,6 +24,11 @@ class ExcelParserService:
         "AWS_SecurityGroup",
         "AWS_S3",
         "AWS_RDS",
+        "AWS_InternetGateway",
+        "AWS_NATGateway",
+        "AWS_ElasticIP",
+        "AWS_LoadBalancer",
+        "AWS_TargetGroup",
     ]
 
     AZURE_RESOURCE_TYPES = [
@@ -33,6 +38,9 @@ class ExcelParserService:
         "Azure_NSG",
         "Azure_Storage",
         "Azure_SQL",
+        "Azure_PublicIP",
+        "Azure_NATGateway",
+        "Azure_LoadBalancer",
     ]
 
     # Common fields for all resources
@@ -205,7 +213,29 @@ class ExcelParserService:
 
                 # Store all properties
                 if value is not None:
-                    properties[header] = self._convert_cell_value(value, header)
+                    converted_val = self._convert_cell_value(value, header)
+                    # For list-like fields, ensure they are lists
+                    list_headers = [
+                        "Subnets",
+                        "SecurityGroups",
+                        "SecurityGroupIds",
+                        "AddressSpace",
+                        "DnsServers",
+                        "ServiceEndpoints",
+                        "BlobContainers",
+                        "Targets",
+                        "BackendPoolResources",
+                    ]
+                    if header in list_headers and isinstance(converted_val, str):
+                        # Convert comma-separated string to list
+                        if "," in converted_val:
+                            converted_val = [
+                                x.strip() for x in converted_val.split(",") if x.strip()
+                            ]
+                        else:
+                            converted_val = [converted_val]
+
+                    properties[header] = converted_val
 
             # Validate and create resource
             if resource_name:
@@ -213,6 +243,35 @@ class ExcelParserService:
                 resource_type = (
                     sheet_name.split("_", 1)[1] if "_" in sheet_name else sheet_name
                 )
+
+                # Inject secure defaults
+                if resource_type == "S3":
+                    if "PublicAccess" not in properties:
+                        properties["PublicAccess"] = False
+                elif resource_type == "Storage":
+                    if "EnableHttpsTrafficOnly" not in properties:
+                        properties["EnableHttpsTrafficOnly"] = True
+                    if "MinTlsVersion" not in properties:
+                        properties["MinTlsVersion"] = "TLS1_2"
+                elif resource_type == "Subnet" and cloud_platform == CloudPlatform.AZURE:
+                    # Guardrail: strip SQL-style endpoint values that commonly lead to invalid subnet configs.
+                    self._sanitize_azure_subnet_service_endpoints(
+                        properties=properties,
+                        sheet_name=sheet_name,
+                        row_idx=row_idx,
+                        resource_name=resource_name,
+                    )
+                elif resource_type == "SQL" and cloud_platform == CloudPlatform.AZURE:
+                    # Guardrail: prevent incompatible SQL networking/auditing combinations.
+                    self._normalize_azure_sql_properties(
+                        properties=properties,
+                        sheet_name=sheet_name,
+                        row_idx=row_idx,
+                        resource_name=resource_name,
+                    )
+                elif resource_type == "LoadBalancer" and cloud_platform == CloudPlatform.AZURE:
+                    # Normalize Azure LoadBalancer field aliases so template rendering stays consistent.
+                    self._normalize_azure_load_balancer_properties(properties)
 
                 # Merge metadata columns (Environment, Project, Owner, CostCenter) into Tags
                 # This ensures compliance checks can validate these as tags
@@ -325,6 +384,146 @@ class ExcelParserService:
 
         return len(errors) == 0, errors
 
+    def _normalize_azure_load_balancer_properties(
+        self, properties: Dict[str, Any]
+    ) -> None:
+        """Normalize Azure LoadBalancer property aliases into canonical keys."""
+        aliases = {
+            "PrivateIPAllocation": "PrivateIPAddressAllocation",
+            "HealthProbeNumberOfProbes": "HealthProbeThreshold",
+            "EnableFloatingIP": "LBRuleEnableFloatingIP",
+            "IdleTimeoutMinutes": "LBRuleIdleTimeout",
+            "DisableOutboundSnat": "LBRuleDisableOutboundSnat",
+        }
+        for alias, canonical in aliases.items():
+            if canonical not in properties and alias in properties:
+                properties[canonical] = properties[alias]
+
+        # Canonicalize LB rule protocol to avoid invalid Terraform values.
+        lb_rule_protocol = properties.get("LBRuleProtocol")
+        if isinstance(lb_rule_protocol, str):
+            protocol_lower = lb_rule_protocol.strip().lower()
+            protocol_map = {
+                "all": "All",
+                "tcp": "Tcp",
+                "udp": "Udp",
+                # Azure LB rule only supports L4 protocols; map common L7 input to Tcp.
+                "http": "Tcp",
+                "https": "Tcp",
+            }
+            mapped = protocol_map.get(protocol_lower)
+            if mapped:
+                if mapped != lb_rule_protocol:
+                    properties["LBRuleProtocol"] = mapped
+                if protocol_lower in ("http", "https"):
+                    self.warnings.append(
+                        "Azure LoadBalancer LBRuleProtocol only supports Tcp/Udp/All; "
+                        f"mapped '{lb_rule_protocol}' to 'Tcp'."
+                    )
+
+    def _sanitize_azure_subnet_service_endpoints(
+        self,
+        properties: Dict[str, Any],
+        sheet_name: str,
+        row_idx: int,
+        resource_name: str,
+    ) -> None:
+        """
+        Normalize SQL-like ServiceEndpoints values for Azure subnet and emit warning.
+
+        Keep canonical `Microsoft.Sql`. If users input invalid SQL-like values such as
+        `Microsoft.Sql/servers`, map them to `Microsoft.Sql` to avoid failed deployments.
+        """
+        raw_endpoints = properties.get("ServiceEndpoints")
+        if raw_endpoints in (None, ""):
+            return
+
+        if isinstance(raw_endpoints, str):
+            endpoints = [item.strip() for item in raw_endpoints.split(",") if item.strip()]
+        elif isinstance(raw_endpoints, list):
+            endpoints = [str(item).strip() for item in raw_endpoints if str(item).strip()]
+        else:
+            endpoints = [str(raw_endpoints).strip()]
+
+        removed: List[str] = []
+        mapped_to_sql = False
+        kept: List[str] = []
+        for endpoint in endpoints:
+            normalized = endpoint.lower()
+            if normalized == "microsoft.sql":
+                kept.append("Microsoft.Sql")
+            elif normalized.startswith("microsoft.sql/"):
+                removed.append(endpoint)
+                mapped_to_sql = True
+            else:
+                kept.append(endpoint)
+
+        if removed:
+            self.warnings.append(
+                f"Sheet {sheet_name}, Row {row_idx}, Resource {resource_name}: "
+                f"Removed unsupported SQL ServiceEndpoints values {removed}."
+            )
+
+        if mapped_to_sql and "Microsoft.Sql" not in kept:
+            kept.append("Microsoft.Sql")
+            self.warnings.append(
+                f"Sheet {sheet_name}, Row {row_idx}, Resource {resource_name}: "
+                "Mapped invalid SQL ServiceEndpoints values to 'Microsoft.Sql'."
+            )
+
+        if kept:
+            properties["ServiceEndpoints"] = kept
+        else:
+            properties.pop("ServiceEndpoints", None)
+
+    def _normalize_azure_sql_properties(
+        self,
+        properties: Dict[str, Any],
+        sheet_name: str,
+        row_idx: int,
+        resource_name: str,
+    ) -> None:
+        """Normalize Azure SQL properties to avoid known deployment conflicts."""
+
+        public_network_access = str(
+            properties.get("PublicNetworkAccess", "true")
+        ).strip().lower()
+        public_network_disabled = public_network_access in {
+            "false",
+            "disabled",
+            "deny",
+            "no",
+            "0",
+        }
+
+        if public_network_disabled:
+            if properties.get("FirewallRules"):
+                properties.pop("FirewallRules", None)
+                self.warnings.append(
+                    f"Sheet {sheet_name}, Row {row_idx}, Resource {resource_name}: "
+                    "Removed FirewallRules because PublicNetworkAccess is disabled."
+                )
+            if properties.get("VirtualNetworkRules"):
+                properties.pop("VirtualNetworkRules", None)
+                self.warnings.append(
+                    f"Sheet {sheet_name}, Row {row_idx}, Resource {resource_name}: "
+                    "Removed VirtualNetworkRules because PublicNetworkAccess is disabled."
+                )
+
+        auditing_enabled = str(properties.get("AuditingEnabled", "false")).strip().lower()
+        if auditing_enabled in {"true", "enabled", "yes", "1"}:
+            endpoint = str(properties.get("AuditingStorageEndpoint", "")).strip()
+            is_blob_endpoint = (
+                endpoint.startswith("https://") and ".blob.core.windows.net" in endpoint
+            )
+            if not is_blob_endpoint:
+                properties["AuditingEnabled"] = "false"
+                self.warnings.append(
+                    f"Sheet {sheet_name}, Row {row_idx}, Resource {resource_name}: "
+                    "Disabled AuditingEnabled because AuditingStorageEndpoint is missing "
+                    "or invalid (expected blob endpoint)."
+                )
+
     def _validate_aws_resource(self, resource: ResourceInfo) -> List[str]:
         """Validate AWS-specific resource fields."""
         errors: List[str] = []
@@ -418,6 +617,196 @@ class ExcelParserService:
             for field in exists_fields:
                 if field in props and props[field] not in ["y", "n"]:
                     errors.append(f"{field} must be 'y' or 'n'")
+
+        elif resource.resource_type == "InternetGateway":
+            required = [
+                "Region",
+                "VPC",
+                "VPCExists",
+            ]
+            for field in required:
+                if field not in props or not props[field]:
+                    errors.append(
+                        f"Missing required field for InternetGateway: {field}"
+                    )
+            # Validate VPCExists value
+            if "VPCExists" in props and props["VPCExists"] not in ["y", "n"]:
+                errors.append("VPCExists must be 'y' or 'n'")
+
+        elif resource.resource_type == "NATGateway":
+            required = [
+                "Region",
+                "Subnet",
+                "SubnetExists",
+            ]
+            for field in required:
+                if field not in props or not props[field]:
+                    errors.append(f"Missing required field for NATGateway: {field}")
+            # Validate Exists fields values
+            exists_fields = ["SubnetExists", "InternetGatewayExists"]
+            for field in exists_fields:
+                if field in props and props[field] not in ["y", "n"]:
+                    errors.append(f"{field} must be 'y' or 'n'")
+            # Validate ConnectivityType if provided
+            if "ConnectivityType" in props:
+                if props["ConnectivityType"] not in ["public", "private"]:
+                    errors.append("ConnectivityType must be 'public' or 'private'")
+
+        elif resource.resource_type == "ElasticIP":
+            required = [
+                "Region",
+            ]
+            for field in required:
+                if field not in props or not props[field]:
+                    errors.append(f"Missing required field for ElasticIP: {field}")
+            # Validate Exists fields values
+            exists_fields = ["InstanceExists", "NetworkInterfaceExists"]
+            for field in exists_fields:
+                if field in props and props[field] not in ["y", "n"]:
+                    errors.append(f"{field} must be 'y' or 'n'")
+            # Validate Domain if provided
+            if "Domain" in props:
+                if props["Domain"] not in ["vpc", "standard"]:
+                    errors.append("Domain must be 'vpc' or 'standard'")
+
+        elif resource.resource_type == "LoadBalancer":
+            required = [
+                "Region",
+                "Type",
+                "Scheme",
+                "VPC",
+                "VPCExists",
+            ]
+            for field in required:
+                if field not in props or not props[field]:
+                    errors.append(f"Missing required field for LoadBalancer: {field}")
+            # Validate Exists fields values
+            exists_fields = [
+                "VPCExists",
+                "SubnetExists",
+                "SecurityGroupsExist",
+                "ListenerTargetGroupExists",
+            ]
+            for field in exists_fields:
+                if field in props and props[field] not in ["y", "n"]:
+                    errors.append(f"{field} must be 'y' or 'n'")
+            # Validate Type
+            if "Type" in props:
+                if props["Type"] not in ["application", "network"]:
+                    errors.append("Type must be 'application' or 'network'")
+            # Validate Scheme
+            if "Scheme" in props:
+                if props["Scheme"] not in ["internet-facing", "internal"]:
+                    errors.append("Scheme must be 'internet-facing' or 'internal'")
+            # Validate IPAddressType if provided
+            if "IPAddressType" in props:
+                if props["IPAddressType"] not in ["ipv4", "dualstack"]:
+                    errors.append("IPAddressType must be 'ipv4' or 'dualstack'")
+            # Validate IdleTimeout for ALB
+            if "IdleTimeout" in props and "Type" in props:
+                if props["Type"] == "application":
+                    try:
+                        timeout = int(props["IdleTimeout"])
+                        if timeout < 1 or timeout > 4000:
+                            errors.append(
+                                "IdleTimeout must be between 1 and 4000 seconds for ALB"
+                            )
+                    except (ValueError, TypeError):
+                        errors.append("IdleTimeout must be a valid integer")
+            # Validate ListenerProtocol if provided
+            if "ListenerProtocol" in props:
+                if props["ListenerProtocol"] not in [
+                    "HTTP",
+                    "HTTPS",
+                    "TCP",
+                    "UDP",
+                    "TLS",
+                ]:
+                    errors.append(
+                        "ListenerProtocol must be 'HTTP', 'HTTPS', 'TCP', 'UDP', or 'TLS'"
+                    )
+            # Validate boolean fields
+            bool_fields = ["CrossZoneEnabled", "DeletionProtection"]
+            for field in bool_fields:
+                if field in props:
+                    val = str(props[field]).lower()
+                    if val not in ["true", "false"]:
+                        errors.append(f"{field} must be 'true' or 'false'")
+
+        elif resource.resource_type == "TargetGroup":
+            required = [
+                "Region",
+                "Port",
+                "Protocol",
+                "VPC",
+                "VPCExists",
+                "TargetType",
+            ]
+            for field in required:
+                if field not in props or not props[field]:
+                    errors.append(f"Missing required field for TargetGroup: {field}")
+            # Validate VPCExists
+            if "VPCExists" in props and props["VPCExists"] not in ["y", "n"]:
+                errors.append("VPCExists must be 'y' or 'n'")
+            # Validate Protocol
+            if "Protocol" in props:
+                if props["Protocol"] not in [
+                    "HTTP",
+                    "HTTPS",
+                    "TCP",
+                    "UDP",
+                    "TLS",
+                    "GENEVE",
+                ]:
+                    errors.append(
+                        "Protocol must be 'HTTP', 'HTTPS', 'TCP', 'UDP', 'TLS', or 'GENEVE'"
+                    )
+            # Validate TargetType
+            if "TargetType" in props:
+                if props["TargetType"] not in ["instance", "ip", "lambda", "alb"]:
+                    errors.append(
+                        "TargetType must be 'instance', 'ip', 'lambda', or 'alb'"
+                    )
+            # Validate Port
+            if "Port" in props:
+                try:
+                    port = int(props["Port"])
+                    if port < 1 or port > 65535:
+                        errors.append("Port must be between 1 and 65535")
+                except (ValueError, TypeError):
+                    errors.append("Port must be a valid integer between 1 and 65535")
+            # Validate HealthCheckProtocol if provided
+            if "HealthCheckProtocol" in props:
+                if props["HealthCheckProtocol"] not in ["HTTP", "HTTPS", "TCP"]:
+                    errors.append(
+                        "HealthCheckProtocol must be 'HTTP', 'HTTPS', or 'TCP'"
+                    )
+            # Validate numeric health check fields
+            numeric_fields = {
+                "HealthCheckInterval": (5, 300),
+                "HealthyThreshold": (2, 10),
+                "UnhealthyThreshold": (2, 10),
+                "HealthCheckTimeout": (2, 120),
+                "DeregistrationDelay": (0, 3600),
+                "SlowStart": (30, 900),
+            }
+            for field, (min_val, max_val) in numeric_fields.items():
+                if field in props:
+                    try:
+                        val = int(props[field])
+                        if val < min_val or val > max_val:
+                            errors.append(
+                                f"{field} must be between {min_val} and {max_val}"
+                            )
+                    except (ValueError, TypeError):
+                        errors.append(f"{field} must be a valid integer")
+            # Validate boolean fields
+            bool_fields = ["StickinessEnabled"]
+            for field in bool_fields:
+                if field in props:
+                    val = str(props[field]).lower()
+                    if val not in ["true", "false"]:
+                        errors.append(f"{field} must be 'true' or 'false'")
 
         return errors
 
@@ -546,6 +935,96 @@ class ExcelParserService:
             for field in exists_fields:
                 if field in props and props[field] not in ["y", "n"]:
                     errors.append(f"{field} must be 'y' or 'n'")
+
+        elif resource.resource_type == "PublicIP":
+            required = [
+                "ResourceGroup",
+                "ResourceGroupExists",
+                "Location",
+                "AllocationMethod",
+                "SKU",
+            ]
+            for field in required:
+                if field not in props or not props[field]:
+                    errors.append(f"Missing required field for PublicIP: {field}")
+            # Validate ResourceGroupExists value
+            if "ResourceGroupExists" in props and props["ResourceGroupExists"] not in [
+                "y",
+                "n",
+            ]:
+                errors.append("ResourceGroupExists must be 'y' or 'n'")
+            # Validate AllocationMethod
+            if "AllocationMethod" in props:
+                if props["AllocationMethod"] not in ["Static", "Dynamic"]:
+                    errors.append("AllocationMethod must be 'Static' or 'Dynamic'")
+            # Validate SKU
+            if "SKU" in props:
+                if props["SKU"] not in ["Basic", "Standard"]:
+                    errors.append("SKU must be 'Basic' or 'Standard'")
+
+        elif resource.resource_type == "NATGateway":
+            required = [
+                "ResourceGroup",
+                "ResourceGroupExists",
+                "Location",
+            ]
+            for field in required:
+                if field not in props or not props[field]:
+                    errors.append(f"Missing required field for NATGateway: {field}")
+            # Validate Exists fields values
+            exists_fields = ["ResourceGroupExists", "PublicIPExists", "SubnetExists"]
+            for field in exists_fields:
+                if field in props and props[field] not in ["y", "n"]:
+                    errors.append(f"{field} must be 'y' or 'n'")
+            # Validate IdleTimeoutMinutes if provided
+            if "IdleTimeoutMinutes" in props:
+                timeout = props["IdleTimeoutMinutes"]
+                if isinstance(timeout, (int, float)):
+                    if timeout < 4 or timeout > 120:
+                        errors.append("IdleTimeoutMinutes must be between 4 and 120")
+
+        elif resource.resource_type == "LoadBalancer":
+            required = [
+                "ResourceGroup",
+                "ResourceGroupExists",
+                "Location",
+                "SKU",
+                "FrontendIPName",
+            ]
+            for field in required:
+                if field not in props or not props[field]:
+                    errors.append(f"Missing required field for LoadBalancer: {field}")
+            # Validate Exists fields values
+            exists_fields = ["ResourceGroupExists", "PublicIPExists", "SubnetExists"]
+            for field in exists_fields:
+                if field in props and props[field] not in ["y", "n"]:
+                    errors.append(f"{field} must be 'y' or 'n'")
+            # Validate SKU
+            if "SKU" in props:
+                if props["SKU"] not in ["Basic", "Standard"]:
+                    errors.append("SKU must be 'Basic' or 'Standard'")
+            # Validate HealthProbeProtocol if provided
+            if "HealthProbeProtocol" in props:
+                if props["HealthProbeProtocol"] not in ["Tcp", "Http", "Https"]:
+                    errors.append(
+                        "HealthProbeProtocol must be 'Tcp', 'Http', or 'Https'"
+                    )
+            # Validate LBRuleProtocol if provided
+            if "LBRuleProtocol" in props:
+                if props["LBRuleProtocol"] not in ["Tcp", "Udp", "All"]:
+                    errors.append("LBRuleProtocol must be 'Tcp', 'Udp', or 'All'")
+            # Validate BackendPoolResources if provided
+            if "BackendPoolResources" in props:
+                backend_resources = props["BackendPoolResources"]
+                if not isinstance(backend_resources, list):
+                    errors.append("BackendPoolResources must be a comma-separated list")
+                elif not all(
+                    isinstance(resource_name, str) and resource_name.strip()
+                    for resource_name in backend_resources
+                ):
+                    errors.append(
+                        "BackendPoolResources entries must be non-empty resource names"
+                    )
 
         return errors
 

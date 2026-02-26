@@ -24,14 +24,28 @@ class TerraformCodeGenerator:
 
         # Add custom filters
         self.env.filters["tojson"] = self._to_json
+        self.env.filters["fromjson"] = self._from_json
         self.env.filters["trim"] = str.strip
         self.env.filters["to_hcl_map"] = self._to_hcl_map
+        self.env.filters["safe_id"] = self._safe_id
+        self.env.filters["azure_rg_ref"] = self._azure_rg_ref
 
     def _to_json(self, value: Any) -> str:
         """Convert value to JSON string."""
         import json
 
         return json.dumps(value)
+
+    def _from_json(self, value: str) -> Any:
+        """Parse JSON string to Python object."""
+        import json
+
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return value
+        return value
 
     def _to_hcl_map(self, value: Any) -> str:
         """
@@ -60,6 +74,50 @@ class TerraformCodeGenerator:
 
         lines.append("  }")
         return "\n".join(lines)
+
+    def _safe_id(self, value: str) -> str:
+        """
+        Convert a string to a safe Terraform resource identifier.
+        1. Replace '-' with '_'
+        2. Replace spaces with '_'
+        3. Ensure it starts with a letter (prepend 'res_' if starts with digit)
+        4. Remove other special characters
+        """
+        if not value:
+            return "unnamed"
+
+        # Basic replacements
+        safe = str(value).lower().replace("-", "_").replace(" ", "_")
+
+        # Remove all characters except alphanumeric and underscore
+        import re
+
+        safe = re.sub(r"[^a-z0-9_]", "", safe)
+
+        # Ensure starts with a letter
+        if safe and safe[0].isdigit():
+            safe = f"res_{safe}"
+
+        if not safe:
+            return "unnamed"
+
+        return safe
+
+    def _azure_rg_ref(
+        self, properties: Dict[str, Any], resource: Dict[str, Any]
+    ) -> str:
+        """
+        Get the correct HCL reference for an Azure Resource Group.
+        """
+        rg_name = properties.get("ResourceGroup", "default-rg")
+        rg_exists = properties.get("ResourceGroupExists", "n").lower()
+        skip_creation = resource.get("skip_resource_group_creation", False)
+
+        if rg_exists in ("y", "yes") or skip_creation:
+            return f'"{rg_name}"'
+        else:
+            safe_rg_name = self._safe_id(rg_name)
+            return f"azurerm_resource_group.{safe_rg_name}.name"
 
     def generate_code(self, resources: List[Dict[str, Any]]) -> Dict[str, str]:
         """
@@ -128,7 +186,7 @@ class TerraformCodeGenerator:
                 f"[TerraformGenerator] Auto-generating {len(resource_groups_to_create)} Resource Group(s)"
             )
             for rg_name, rg_location in resource_groups_to_create:
-                rg_resource_name = rg_name.replace("-", "_")
+                rg_resource_name = self._safe_id(rg_name)
                 main_code += f'''resource "azurerm_resource_group" "{rg_resource_name}" {{
   name     = "{rg_name}"
   location = "{rg_location}"
@@ -295,6 +353,21 @@ provider "azurerm" {
             else "azure_subnet",
             "security_group": "aws_security_group",
             "securitygroup": "aws_security_group",
+            # AWS Internet Gateway aliases
+            "internet_gateway": "aws_internet_gateway",
+            "internetgateway": "aws_internet_gateway",
+            "igw": "aws_internet_gateway",
+            # AWS/Azure NAT Gateway aliases (context-dependent)
+            "nat_gateway": "aws_nat_gateway"
+            if cloud_platform != CloudPlatform.AZURE and cloud_platform != "azure"
+            else "azure_nat_gateway",
+            "natgateway": "aws_nat_gateway"
+            if cloud_platform != CloudPlatform.AZURE and cloud_platform != "azure"
+            else "azure_nat_gateway",
+            "nat": "aws_nat_gateway"
+            if cloud_platform != CloudPlatform.AZURE and cloud_platform != "azure"
+            else "azure_nat_gateway",
+            # Azure VM and network aliases
             "vm": "azure_vm",
             "vnet": "azure_vnet",
             "resource_group": "azure_resource_group",
@@ -302,6 +375,31 @@ provider "azurerm" {
             "nsg": "azure_nsg",
             "storage": "azure_storage",
             "sql": "azure_sql",
+            # Azure Public IP aliases
+            "public_ip": "azure_public_ip",
+            "publicip": "azure_public_ip",
+            "pip": "azure_public_ip",
+            # AWS Elastic IP aliases
+            "elastic_ip": "aws_elastic_ip",
+            "elasticip": "aws_elastic_ip",
+            "eip": "aws_elastic_ip",
+            # Azure Load Balancer aliases (context-dependent)
+            "load_balancer": "aws_load_balancer"
+            if cloud_platform != CloudPlatform.AZURE and cloud_platform != "azure"
+            else "azure_load_balancer",
+            "loadbalancer": "aws_load_balancer"
+            if cloud_platform != CloudPlatform.AZURE and cloud_platform != "azure"
+            else "azure_load_balancer",
+            "lb": "aws_load_balancer"
+            if cloud_platform != CloudPlatform.AZURE and cloud_platform != "azure"
+            else "azure_load_balancer",
+            # AWS-specific Load Balancer aliases
+            "alb": "aws_load_balancer",  # Application Load Balancer
+            "nlb": "aws_load_balancer",  # Network Load Balancer
+            # AWS Target Group aliases
+            "target_group": "aws_target_group",
+            "targetgroup": "aws_target_group",
+            "tg": "aws_target_group",
         }
 
         # Normalize resource type first
@@ -360,6 +458,13 @@ provider "azurerm" {
             "aws_ec2": "aws/ec2.tf.j2",
             "aws_s3": "aws/s3.tf.j2",
             "aws_rds": "aws/rds.tf.j2",
+            # AWS Internet Gateway
+            "aws_internet_gateway": "aws/internet_gateway.tf.j2",
+            "aws_internetgateway": "aws/internet_gateway.tf.j2",
+            "aws_igw": "aws/internet_gateway.tf.j2",
+            # AWS NAT Gateway
+            "aws_nat_gateway": "aws/nat_gateway.tf.j2",
+            "aws_natgateway": "aws/nat_gateway.tf.j2",
             # Azure resources
             "azure_resource_group": "azure/resource_group.tf.j2",
             "azure_resourcegroup": "azure/resource_group.tf.j2",
@@ -369,6 +474,30 @@ provider "azurerm" {
             "azure_vm": "azure/vm.tf.j2",
             "azure_storage": "azure/storage.tf.j2",
             "azure_sql": "azure/sql.tf.j2",
+            # Azure Public IP
+            "azure_public_ip": "azure/public_ip.tf.j2",
+            "azure_publicip": "azure/public_ip.tf.j2",
+            # Azure NAT Gateway
+            "azure_nat_gateway": "azure/nat_gateway.tf.j2",
+            "azure_natgateway": "azure/nat_gateway.tf.j2",
+            # AWS Elastic IP
+            "aws_elastic_ip": "aws/elastic_ip.tf.j2",
+            "aws_elasticip": "aws/elastic_ip.tf.j2",
+            "aws_eip": "aws/elastic_ip.tf.j2",
+            # Azure Load Balancer
+            "azure_load_balancer": "azure/load_balancer.tf.j2",
+            "azure_loadbalancer": "azure/load_balancer.tf.j2",
+            "azure_lb": "azure/load_balancer.tf.j2",
+            # AWS Load Balancer
+            "aws_load_balancer": "aws/load_balancer.tf.j2",
+            "aws_loadbalancer": "aws/load_balancer.tf.j2",
+            "aws_lb": "aws/load_balancer.tf.j2",
+            "aws_alb": "aws/load_balancer.tf.j2",
+            "aws_nlb": "aws/load_balancer.tf.j2",
+            # AWS Target Group
+            "aws_target_group": "aws/target_group.tf.j2",
+            "aws_targetgroup": "aws/target_group.tf.j2",
+            "aws_tg": "aws/target_group.tf.j2",
         }
 
         template_name = template_map.get(resource_type)
@@ -413,10 +542,10 @@ provider "azurerm" {
 
     def _generate_outputs(self, resources: List) -> str:
         """Generate outputs file with useful resource information."""
-        code = "# Outputs\\n\\n"
+        code = "# Outputs\n\n"
 
         for resource in resources:
-            resource_name = resource.get("resource_name", "").replace("-", "_")
+            resource_name = self._safe_id(resource.get("resource_name", ""))
             resource_type = resource.get("resource_type", "").lower()
             cloud_platform = resource.get("cloud_platform", "")
             properties = resource.get("properties", {})
@@ -507,6 +636,107 @@ output "{resource_name}_rds_port" {{
                     code += f'''output "{resource_name}_security_group_id" {{
   description = "ID of Security Group {resource_name}"
   value       = aws_security_group.{resource_name}.id
+}}
+
+'''
+                elif resource_type in [
+                    "internet_gateway",
+                    "aws_internet_gateway",
+                    "internetgateway",
+                    "igw",
+                ]:
+                    code += f'''output "{resource_name}_igw_id" {{
+  description = "ID of Internet Gateway {resource_name}"
+  value       = aws_internet_gateway.{resource_name}.id
+}}
+
+'''
+                elif resource_type in [
+                    "nat_gateway",
+                    "aws_nat_gateway",
+                    "natgateway",
+                ]:
+                    code += f'''output "{resource_name}_nat_gateway_id" {{
+  description = "ID of NAT Gateway {resource_name}"
+  value       = aws_nat_gateway.{resource_name}.id
+}}
+
+output "{resource_name}_nat_gateway_public_ip" {{
+  description = "Public IP of NAT Gateway {resource_name}"
+  value       = aws_eip.{resource_name}_eip.public_ip
+}}
+
+'''
+                elif resource_type in [
+                    "elastic_ip",
+                    "aws_elastic_ip",
+                    "elasticip",
+                    "eip",
+                ]:
+                    code += f'''output "{resource_name}_eip_id" {{
+  description = "ID of Elastic IP {resource_name}"
+  value       = aws_eip.{resource_name}.id
+}}
+
+output "{resource_name}_eip_public_ip" {{
+  description = "Public IP address of Elastic IP {resource_name}"
+  value       = aws_eip.{resource_name}.public_ip
+}}
+
+output "{resource_name}_eip_allocation_id" {{
+  description = "Allocation ID of Elastic IP {resource_name}"
+  value       = aws_eip.{resource_name}.allocation_id
+}}
+
+'''
+                elif resource_type in [
+                    "load_balancer",
+                    "aws_load_balancer",
+                    "loadbalancer",
+                    "lb",
+                    "alb",
+                    "nlb",
+                ]:
+                    code += f'''output "{resource_name}_lb_arn" {{
+  description = "ARN of Load Balancer {resource_name}"
+  value       = aws_lb.{resource_name}.arn
+}}
+
+output "{resource_name}_lb_dns_name" {{
+  description = "DNS name of Load Balancer {resource_name}"
+  value       = aws_lb.{resource_name}.dns_name
+}}
+
+output "{resource_name}_lb_id" {{
+  description = "ID of Load Balancer {resource_name}"
+  value       = aws_lb.{resource_name}.id
+}}
+
+output "{resource_name}_lb_zone_id" {{
+  description = "Canonical hosted zone ID of Load Balancer {resource_name}"
+  value       = aws_lb.{resource_name}.zone_id
+}}
+
+'''
+                elif resource_type in [
+                    "target_group",
+                    "aws_target_group",
+                    "targetgroup",
+                    "tg",
+                ]:
+                    code += f'''output "{resource_name}_tg_arn" {{
+  description = "ARN of Target Group {resource_name}"
+  value       = aws_lb_target_group.{resource_name}.arn
+}}
+
+output "{resource_name}_tg_id" {{
+  description = "ID of Target Group {resource_name}"
+  value       = aws_lb_target_group.{resource_name}.id
+}}
+
+output "{resource_name}_tg_name" {{
+  description = "Name of Target Group {resource_name}"
+  value       = aws_lb_target_group.{resource_name}.name
 }}
 
 '''
@@ -630,6 +860,66 @@ output "{resource_name}_sql_connection_string" {{
   description = "Connection string for Azure SQL Database {resource_name}"
   value       = "Server=${{azurerm_mssql_server.{resource_name}_server.fully_qualified_domain_name}};Database={resource_name};User Id=${{azurerm_mssql_server.{resource_name}_server.administrator_login}};Password=<your_password>;"
   sensitive   = true
+}}
+
+'''
+                elif resource_type in [
+                    "public_ip",
+                    "azure_public_ip",
+                    "publicip",
+                    "pip",
+                ]:
+                    code += f'''output "{resource_name}_public_ip_id" {{
+  description = "ID of Azure Public IP {resource_name}"
+  value       = azurerm_public_ip.{resource_name}.id
+}}
+
+output "{resource_name}_public_ip_address" {{
+  description = "IP address of Azure Public IP {resource_name}"
+  value       = azurerm_public_ip.{resource_name}.ip_address
+}}
+
+output "{resource_name}_public_ip_fqdn" {{
+  description = "FQDN of Azure Public IP {resource_name}"
+  value       = azurerm_public_ip.{resource_name}.fqdn
+}}
+
+'''
+                elif resource_type in [
+                    "nat_gateway",
+                    "azure_nat_gateway",
+                    "natgateway",
+                ]:
+                    code += f'''output "{resource_name}_nat_gateway_id" {{
+  description = "ID of Azure NAT Gateway {resource_name}"
+  value       = azurerm_nat_gateway.{resource_name}.id
+}}
+
+output "{resource_name}_nat_gateway_resource_guid" {{
+  description = "Resource GUID of Azure NAT Gateway {resource_name}"
+  value       = azurerm_nat_gateway.{resource_name}.resource_guid
+}}
+
+'''
+                elif resource_type in [
+                    "load_balancer",
+                    "azure_load_balancer",
+                    "loadbalancer",
+                    "lb",
+                ]:
+                    code += f'''output "{resource_name}_lb_id" {{
+  description = "ID of Azure Load Balancer {resource_name}"
+  value       = azurerm_lb.{resource_name}.id
+}}
+
+output "{resource_name}_lb_frontend_ip_configuration" {{
+  description = "Frontend IP configuration of Azure Load Balancer {resource_name}"
+  value       = azurerm_lb.{resource_name}.frontend_ip_configuration
+}}
+
+output "{resource_name}_lb_private_ip_address" {{
+  description = "Private IP address of Azure Load Balancer {resource_name}"
+  value       = azurerm_lb.{resource_name}.private_ip_address
 }}
 
 '''

@@ -1,0 +1,48 @@
+{# Azure Public IP Terraform Template #}
+{% set safe_res_id = resource_name | safe_id %}
+{% set resource_group_ref = properties | azure_rg_ref(resource) %}
+
+resource "azurerm_public_ip" "{{ safe_res_id }}" {
+  name                = "{{ resource_name }}"
+  resource_group_name = {{ resource_group_ref }}
+  location            = "{{ properties.Location }}"
+  allocation_method   = "{{ properties.AllocationMethod | default('Static') }}"
+  sku                 = "{{ properties.SKU | default('Standard') }}"
+
+  {% if properties.IPVersion %}
+  ip_version          = "{{ properties.IPVersion }}"
+  {% endif %}
+
+  {% if properties.IdleTimeoutMinutes %}
+  idle_timeout_in_minutes = {{ properties.IdleTimeoutMinutes }}
+  {% endif %}
+
+  {% if properties.DomainNameLabel %}
+  domain_name_label   = "{{ properties.DomainNameLabel }}"
+  {% endif %}
+
+  {% if properties.AvailabilityZone and properties.AvailabilityZone != 'No-Zone' %}
+  {% if properties.AvailabilityZone == 'Zone-Redundant' %}
+  zones               = ["1", "2", "3"]
+  {% else %}
+  zones               = ["{{ properties.AvailabilityZone }}"]
+  {% endif %}
+  {% endif %}
+
+  {% if properties.ReverseFqdn %}
+  reverse_fqdn        = "{{ properties.ReverseFqdn }}"
+  {% endif %}
+
+  {% if properties.PublicIPPrefixId %}
+  public_ip_prefix_id = "{{ properties.PublicIPPrefixId }}"
+  {% endif %}
+
+  tags = merge(
+    {
+      Name        = "{{ resource_name }}"
+      Environment = "{{ properties.Environment | default('') }}"
+      Project     = "{{ properties.Project | default('') }}"
+    },
+    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
+  )
+}

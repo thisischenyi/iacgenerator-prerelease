@@ -1,6 +1,7 @@
 {# Azure Storage Account Terraform Template #}
-{% set resource_group_ref = "azurerm_resource_group." + properties.ResourceGroup | replace('-', '_') + ".name" if not resource.skip_resource_group_creation else "\"" + properties.ResourceGroup + "\"" %}
-resource "azurerm_storage_account" "{{ resource_name | replace('-', '_') }}" {
+{% set safe_res_id = resource_name | safe_id %}
+{% set resource_group_ref = properties | azure_rg_ref(resource) %}
+resource "azurerm_storage_account" "{{ safe_res_id }}" {
   name                     = "{{ properties.StorageAccountName | default(resource_name) | replace('-', '') | lower }}"
   resource_group_name      = {{ resource_group_ref }}
   location                 = "{{ properties.Location }}"
@@ -32,9 +33,9 @@ resource "azurerm_storage_account" "{{ resource_name | replace('-', '_') }}" {
 
 {% if properties.BlobContainers %}
 {% for container in properties.BlobContainers %}
-resource "azurerm_storage_container" "{{ resource_name | replace('-', '_') }}_{{ container.name | replace('-', '_') }}" {
+resource "azurerm_storage_container" "{{ safe_res_id }}_{{ container.name | safe_id }}" {
   name                  = "{{ container.name }}"
-  storage_account_name  = azurerm_storage_account.{{ resource_name | replace('-', '_') }}.name
+  storage_account_name  = azurerm_storage_account.{{ safe_res_id }}.name
   container_access_type = "{{ container.access_type | default('private') }}"
 }
 {% endfor %}

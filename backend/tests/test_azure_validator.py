@@ -157,3 +157,77 @@ def test_tags_supported_resources_list():
         in AzureTerraformValidator.TAGS_SUPPORTED_RESOURCES
     )
     assert "azurerm_resource_group" in AzureTerraformValidator.TAGS_SUPPORTED_RESOURCES
+
+
+def test_remove_unsupported_backend_address_ip_configurations_from_lb_pool():
+    """Validator should strip unsupported backend_address_ip_configurations blocks."""
+    main_tf = """
+resource "azurerm_lb_backend_address_pool" "lb_web_backend" {
+  loadbalancer_id = azurerm_lb.lb_web.id
+  name            = "web-backend-pool"
+
+  backend_address_ip_configurations {
+    name      = "web01"
+    ip_address = "10.0.1.4"
+  }
+
+  backend_address_ip_configurations {
+    name      = "web02"
+    ip_address = "10.0.1.5"
+  }
+}
+"""
+    fixed_content, issues = AzureTerraformValidator.validate_and_fix_main_tf(main_tf)
+
+    assert "backend_address_ip_configurations" not in fixed_content
+    assert 'resource "azurerm_lb_backend_address_pool" "lb_web_backend"' in fixed_content
+    assert any("backend_address_ip_configurations" in issue for issue in issues)
+
+
+def test_remove_sql_vnet_rule_when_public_network_access_disabled():
+    """Validator should remove SQL VNet rules if SQL server public access is disabled."""
+    main_tf = """
+resource "azurerm_mssql_server" "sqldb_app_server" {
+  name                         = "sqlsrvdemo3tier"
+  resource_group_name          = azurerm_resource_group.rg_demo.name
+  location                     = "westus3"
+  version                      = "12.0"
+  administrator_login          = "sqladminuser"
+  administrator_login_password = "Password123!"
+  minimum_tls_version          = "1.2"
+  public_network_access_enabled = false
+}
+
+resource "azurerm_mssql_virtual_network_rule" "sqldb_app_vnet_rule_1" {
+  name      = "sql-vnet-rule"
+  server_id = azurerm_mssql_server.sqldb_app_server.id
+  subnet_id = azurerm_subnet.subnet_db.id
+}
+"""
+    fixed_content, issues = AzureTerraformValidator.validate_and_fix_main_tf(main_tf)
+
+    assert 'resource "azurerm_mssql_server" "sqldb_app_server"' in fixed_content
+    assert 'resource "azurerm_mssql_virtual_network_rule" "sqldb_app_vnet_rule_1"' not in fixed_content
+    assert any("Removed azurerm_mssql_virtual_network_rule.sqldb_app_vnet_rule_1" in issue for issue in issues)
+
+
+def test_remove_sql_vulnerability_assessment_when_storage_fields_empty():
+    """Validator should remove SQL vulnerability assessment with empty required fields."""
+    main_tf = """
+resource "azurerm_mssql_server_vulnerability_assessment" "sqldb_app_stg_vulnerability" {
+  server_security_alert_policy_id = azurerm_mssql_server_security_alert_policy.sqldb_app_stg_security_alert.id
+  storage_container_path          = ""
+  storage_account_access_key      = ""
+  recurring_scans {
+    enabled = true
+  }
+}
+"""
+    fixed_content, issues = AzureTerraformValidator.validate_and_fix_main_tf(main_tf)
+
+    assert 'resource "azurerm_mssql_server_vulnerability_assessment" "sqldb_app_stg_vulnerability"' not in fixed_content
+    assert any(
+        "Removed azurerm_mssql_server_vulnerability_assessment.sqldb_app_stg_vulnerability"
+        in issue
+        for issue in issues
+    )

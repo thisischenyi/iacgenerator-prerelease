@@ -1,22 +1,20 @@
 {# Azure Virtual Machine Terraform Template #}
-{% set resource_group_ref = "azurerm_resource_group." + properties.ResourceGroup | replace('-', '_') + ".name" if not resource.skip_resource_group_creation else "\"" + properties.ResourceGroup + "\"" %}
+{% set safe_res_id = resource_name | safe_id %}
+{% set resource_group_ref = properties | azure_rg_ref(resource) %}
 {% set vnet_exists = properties.VNetExists | default('n') | lower %}
 {% set subnet_exists = properties.SubnetExists | default('n') | lower %}
 {% set nsg_exists = properties.NSGExists | default('n') | lower %}
 {% set vnet_ref = properties.VNet %}
 {% set subnet_ref = properties.Subnet %}
 {% set nsg_ref = properties.NSG %}
-{% if vnet_exists == 'y' %}
-  {% set vnet_name_ref = "\"" + vnet_ref + "\"" %}
-{% else %}
-  {% set vnet_name_ref = "azurerm_virtual_network." + vnet_ref | replace('-', '_') + ".name" %}
-{% endif %}
+
 {% if subnet_exists == 'y' %}
   {% set subnet_id_ref = "\"" + subnet_ref + "\"" %}
 {% else %}
-  {% set subnet_id_ref = "azurerm_subnet." + subnet_ref | replace('-', '_') + ".id" %}
+  {% set subnet_id_ref = "azurerm_subnet." + subnet_ref | safe_id + ".id" %}
 {% endif %}
-resource "azurerm_network_interface" "{{ resource_name | replace('-', '_') }}_nic" {
+
+resource "azurerm_network_interface" "{{ safe_res_id }}_nic" {
   name                = "{{ resource_name }}-nic"
   location            = "{{ properties.Location }}"
   resource_group_name = {{ resource_group_ref }}
@@ -26,13 +24,13 @@ resource "azurerm_network_interface" "{{ resource_name | replace('-', '_') }}_ni
     subnet_id                     = {{ subnet_id_ref }}
     private_ip_address_allocation = "Dynamic"
     {% if properties.AssignPublicIP | lower == 'true' %}
-    public_ip_address_id          = azurerm_public_ip.{{ resource_name | replace('-', '_') }}_pip.id
+    public_ip_address_id          = azurerm_public_ip.{{ safe_res_id }}_pip.id
     {% endif %}
   }
 }
 
 {% if properties.AssignPublicIP | lower == 'true' %}
-resource "azurerm_public_ip" "{{ resource_name | replace('-', '_') }}_pip" {
+resource "azurerm_public_ip" "{{ safe_res_id }}_pip" {
   name                = "{{ resource_name }}-pip"
   location            = "{{ properties.Location }}"
   resource_group_name = {{ resource_group_ref }}
@@ -49,15 +47,15 @@ resource "azurerm_public_ip" "{{ resource_name | replace('-', '_') }}_pip" {
 {% if nsg_exists == 'y' %}
   {% set nsg_id_ref = "\"" + nsg_ref + "\"" %}
 {% else %}
-  {% set nsg_id_ref = "azurerm_network_security_group." + nsg_ref | replace('-', '_') + ".id" %}
+  {% set nsg_id_ref = "azurerm_network_security_group." + nsg_ref | safe_id + ".id" %}
 {% endif %}
-resource "azurerm_network_interface_security_group_association" "{{ resource_name | replace('-', '_') }}" {
-  network_interface_id      = azurerm_network_interface.{{ resource_name | replace('-', '_') }}_nic.id
+resource "azurerm_network_interface_security_group_association" "{{ safe_res_id }}" {
+  network_interface_id      = azurerm_network_interface.{{ safe_res_id }}_nic.id
   network_security_group_id = {{ nsg_id_ref }}
 }
 {% endif %}
 
-resource "azurerm_{{ properties.OSType | lower }}_virtual_machine" "{{ resource_name | replace('-', '_') }}" {
+resource "azurerm_{{ properties.OSType | lower | default('linux') }}_virtual_machine" "{{ safe_res_id }}" {
   name                = "{{ resource_name }}"
   location            = "{{ properties.Location }}"
   resource_group_name = {{ resource_group_ref }}
@@ -65,11 +63,14 @@ resource "azurerm_{{ properties.OSType | lower }}_virtual_machine" "{{ resource_
   admin_username      = "{{ properties.AdminUsername }}"
 
   network_interface_ids = [
-    azurerm_network_interface.{{ resource_name | replace('-', '_') }}_nic.id,
+    azurerm_network_interface.{{ safe_res_id }}_nic.id,
   ]
 
+  {% if properties.OSType | lower == 'windows' %}
+  admin_password                  = "{{ properties.AdminPassword }}"
+  {% else %}
   {% if properties.AuthenticationType == 'Password' %}
-  admin_password                  = "{{ properties.AdminPassword }}"  # WARNING: Store in Key Vault in production
+  admin_password                  = "{{ properties.AdminPassword }}"
   disable_password_authentication = false
   {% else %}
   disable_password_authentication = true
@@ -77,6 +78,7 @@ resource "azurerm_{{ properties.OSType | lower }}_virtual_machine" "{{ resource_
     username   = "{{ properties.AdminUsername }}"
     public_key = "{{ properties.SSHPublicKey }}"
   }
+  {% endif %}
   {% endif %}
 
   os_disk {

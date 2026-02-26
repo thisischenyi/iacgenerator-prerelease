@@ -319,7 +319,11 @@ For each resource type, check if the fields are provided.
 
 **Azure VM**
 *   **Required**: ResourceGroup, Location, VMSize, AdminUsername, OSType (Linux/Windows)
-*   **Required (Image)**: ImagePublisher (e.g. Canonical), ImageOffer (e.g. UbuntuServer), ImageSKU (e.g. 18.04-LTS)
+*   **Required (Image)**: ImagePublisher (e.g. Canonical), ImageOffer (e.g. 0001-com-ubuntu-server-jammy), ImageSKU (e.g. 22_04-lts)
+*   **IMPORTANT**: Use the NEW Azure image URN format. Old offers like 'UbuntuServer' are DEPRECATED. Common mappings:
+*     - Ubuntu 22.04: Publisher=Canonical, Offer=0001-com-ubuntu-server-jammy, SKU=22_04-lts
+*     - Ubuntu 24.04: Publisher=Canonical, Offer=ubuntu-24_04-lts, SKU=server
+*     - Windows Server 2022: Publisher=MicrosoftWindowsServer, Offer=WindowsServer, SKU=2022-datacenter-azure-edition
 *   **Required (Auth)**: AuthenticationType (Password/SSH), AdminPassword OR SshPublicKey
 *   **Optional**: VNet_Name, Subnet_Name
 

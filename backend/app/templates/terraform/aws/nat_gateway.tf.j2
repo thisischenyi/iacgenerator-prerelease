@@ -1,0 +1,61 @@
+{# AWS NAT Gateway Terraform Template #}
+{% set safe_res_id = resource_name | safe_id %}
+{% set subnet_ref = "aws_subnet." + properties.Subnet | safe_id + ".id" if properties.SubnetExists | default('n') | lower not in ['y', 'yes'] else "data.aws_subnet." + properties.Subnet | safe_id + ".id" %}
+{% set connectivity_type = properties.ConnectivityType | default('public') | lower %}
+
+{% if properties.SubnetExists | default('n') | lower in ['y', 'yes'] %}
+# Data source for existing Subnet
+data "aws_subnet" "{{ properties.Subnet | safe_id }}" {
+  filter {
+    name   = "tag:Name"
+    values = ["{{ properties.Subnet }}"]
+  }
+}
+{% endif %}
+
+{% if connectivity_type == 'public' %}
+# Elastic IP for NAT Gateway (required for public NAT)
+resource "aws_eip" "{{ safe_res_id }}_eip" {
+  domain = "vpc"
+
+  tags = merge(
+    {
+      Name        = "{{ resource_name }}-eip"
+      Environment = "{{ properties.Environment | default('') }}"
+      Project     = "{{ properties.Project | default('') }}"
+    },
+    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
+  )
+
+  {% if properties.InternetGateway %}
+  {% set igw_ref = "aws_internet_gateway." + properties.InternetGateway | safe_id if properties.InternetGatewayExists | default('n') | lower not in ['y', 'yes'] else "data.aws_internet_gateway." + properties.InternetGateway | safe_id %}
+  # Ensure proper ordering - EIP needs IGW to exist first
+  depends_on = [{{ igw_ref }}]
+  {% endif %}
+}
+{% endif %}
+
+resource "aws_nat_gateway" "{{ safe_res_id }}" {
+  {% if connectivity_type == 'public' %}
+  allocation_id     = aws_eip.{{ safe_res_id }}_eip.id
+  connectivity_type = "public"
+  {% else %}
+  connectivity_type = "private"
+  {% endif %}
+  subnet_id         = {{ subnet_ref }}
+
+  tags = merge(
+    {
+      Name        = "{{ resource_name }}"
+      Environment = "{{ properties.Environment | default('') }}"
+      Project     = "{{ properties.Project | default('') }}"
+    },
+    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
+  )
+
+  {% if properties.InternetGateway and connectivity_type == 'public' %}
+  {% set igw_ref = "aws_internet_gateway." + properties.InternetGateway | safe_id if properties.InternetGatewayExists | default('n') | lower not in ['y', 'yes'] else "data.aws_internet_gateway." + properties.InternetGateway | safe_id %}
+  # To ensure proper ordering, add an explicit dependency on the IGW
+  depends_on = [{{ igw_ref }}]
+  {% endif %}
+}

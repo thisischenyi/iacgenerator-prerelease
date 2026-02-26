@@ -1,0 +1,120 @@
+{# Azure Load Balancer Terraform Template #}
+{% set safe_res_id = resource_name | safe_id %}
+{% set resource_group_ref = properties | azure_rg_ref(resource) %}
+{% set private_ip_allocation = properties.PrivateIPAddressAllocation | default(properties.PrivateIPAllocation) | default('Dynamic') %}
+{% set health_probe_threshold = properties.HealthProbeThreshold | default(properties.HealthProbeNumberOfProbes) | default(2) %}
+{% set lb_floating_ip = properties.LBRuleEnableFloatingIP | default(properties.EnableFloatingIP) | default('false') %}
+{% set lb_idle_timeout = properties.LBRuleIdleTimeout | default(properties.IdleTimeoutMinutes) | default(4) %}
+{% set lb_disable_outbound_snat = properties.LBRuleDisableOutboundSnat | default(properties.DisableOutboundSnat) %}
+{% set lb_rule_protocol_raw = properties.LBRuleProtocol | default('Tcp') %}
+{% set lb_rule_protocol = 'Tcp' if lb_rule_protocol_raw | lower in ['http', 'https'] else lb_rule_protocol_raw %}
+
+resource "azurerm_lb" "{{ safe_res_id }}" {
+  name                = "{{ resource_name }}"
+  resource_group_name = {{ resource_group_ref }}
+  location            = "{{ properties.Location }}"
+  sku                 = "{{ properties.SKU | default('Standard') }}"
+  sku_tier            = "{{ properties.SKUTier | default('Regional') }}"
+
+  frontend_ip_configuration {
+    name = "{{ properties.FrontendIPName | default(resource_name + '-frontend') }}"
+
+    {% if properties.PublicIP %}
+    {% set pip_ref = "azurerm_public_ip." + properties.PublicIP | replace('-', '_') + ".id" if properties.PublicIPExists | default('n') | lower not in ['y', 'yes'] else "data.azurerm_public_ip." + properties.PublicIP | replace('-', '_') + ".id" %}
+    public_ip_address_id = {{ pip_ref }}
+    {% elif properties.Subnet %}
+    {% set subnet_ref = "azurerm_subnet." + properties.Subnet | replace('-', '_') + ".id" if properties.SubnetExists | default('n') | lower not in ['y', 'yes'] else "data.azurerm_subnet." + properties.Subnet | replace('-', '_') + ".id" %}
+    subnet_id                     = {{ subnet_ref }}
+    private_ip_address_allocation = "{{ private_ip_allocation }}"
+    {% if properties.PrivateIPAddress %}
+    private_ip_address            = "{{ properties.PrivateIPAddress }}"
+    {% endif %}
+    {% endif %}
+  }
+
+  tags = merge(
+    {
+      Name        = "{{ resource_name }}"
+      Environment = "{{ properties.Environment | default('') }}"
+      Project     = "{{ properties.Project | default('') }}"
+    },
+    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
+  )
+}
+
+{% if properties.PublicIP and properties.PublicIPExists | default('n') | lower in ['y', 'yes'] %}
+# Data source for existing Public IP
+data "azurerm_public_ip" "{{ properties.PublicIP | replace('-', '_') }}" {
+  name                = "{{ properties.PublicIP }}"
+  resource_group_name = {{ resource_group_ref }}
+}
+{% endif %}
+
+{% if properties.Subnet and properties.SubnetExists | default('n') | lower in ['y', 'yes'] %}
+# Data source for existing Subnet
+data "azurerm_subnet" "{{ properties.Subnet | replace('-', '_') }}" {
+  name                 = "{{ properties.Subnet }}"
+  virtual_network_name = "{{ properties.VNet | default('') }}"
+  resource_group_name  = {{ resource_group_ref }}
+}
+{% endif %}
+
+{% if properties.BackendPoolName %}
+# Backend Address Pool
+resource "azurerm_lb_backend_address_pool" "{{ safe_res_id }}_backend" {
+  loadbalancer_id = azurerm_lb.{{ safe_res_id }}.id
+  name            = "{{ properties.BackendPoolName }}"
+}
+{% endif %}
+
+{% if properties.BackendPoolName and properties.BackendPoolResources %}
+# Backend Pool Associations by resource names from Excel (e.g. vm1,vm2)
+{% for backend_resource in properties.BackendPoolResources %}
+resource "azurerm_network_interface_backend_address_pool_association" "{{ safe_res_id }}_backend_assoc_{{ loop.index }}" {
+  network_interface_id    = azurerm_network_interface.{{ backend_resource | safe_id }}_nic.id
+  ip_configuration_name   = "internal"
+  backend_address_pool_id = azurerm_lb_backend_address_pool.{{ safe_res_id }}_backend.id
+}
+{% endfor %}
+{% endif %}
+
+{% if properties.HealthProbeName %}
+# Health Probe
+resource "azurerm_lb_probe" "{{ safe_res_id }}_probe" {
+  loadbalancer_id     = azurerm_lb.{{ safe_res_id }}.id
+  name                = "{{ properties.HealthProbeName }}"
+  protocol            = "{{ properties.HealthProbeProtocol | default('Tcp') }}"
+  port                = {{ properties.HealthProbePort | default(80) }}
+  {% if properties.HealthProbeProtocol | default('Tcp') in ['Http', 'Https'] %}
+  request_path        = "{{ properties.HealthProbePath | default('/') }}"
+  {% endif %}
+  interval_in_seconds = {{ properties.HealthProbeInterval | default(15) }}
+  number_of_probes    = {{ health_probe_threshold }}
+
+  depends_on = [azurerm_lb.{{ safe_res_id }}]
+}
+{% endif %}
+
+{% if properties.LBRuleName %}
+# Load Balancing Rule
+resource "azurerm_lb_rule" "{{ safe_res_id }}_rule" {
+  loadbalancer_id                = azurerm_lb.{{ safe_res_id }}.id
+  name                           = "{{ properties.LBRuleName }}"
+  protocol                       = "{{ lb_rule_protocol }}"
+  frontend_port                  = {{ properties.LBRuleFrontendPort | default(80) }}
+  backend_port                   = {{ properties.LBRuleBackendPort | default(80) }}
+  frontend_ip_configuration_name = "{{ properties.FrontendIPName | default(resource_name + '-frontend') }}"
+  {% if properties.BackendPoolName %}
+  backend_address_pool_ids       = [azurerm_lb_backend_address_pool.{{ safe_res_id }}_backend.id]
+  {% endif %}
+  {% if properties.HealthProbeName %}
+  probe_id                       = azurerm_lb_probe.{{ safe_res_id }}_probe.id
+  {% endif %}
+  floating_ip_enabled            = {{ lb_floating_ip | lower }}
+  idle_timeout_in_minutes        = {{ lb_idle_timeout }}
+  load_distribution              = "{{ properties.LoadDistribution | default('Default') }}"
+  {% if lb_disable_outbound_snat is defined %}
+  disable_outbound_snat          = {{ lb_disable_outbound_snat | lower }}
+  {% endif %}
+}
+{% endif %}

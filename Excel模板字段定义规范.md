@@ -9,13 +9,22 @@
   - [AWS_SecurityGroup](#aws_securitygroup)
   - [AWS_S3](#aws_s3)
   - [AWS_RDS](#aws_rds)
-- [Azure资源定义](#azure资源定义)
+  - [AWS_InternetGateway](#aws_internetgateway)
+  - [AWS_NATGateway](#aws_natgateway)
+  - [AWS_ElasticIP](#aws_elasticip)
+  - [AWS_LoadBalancer](#aws_loadbalancer)
+  - [AWS_TargetGroup](#aws_targetgroup)
+- [Azure资源定义](#azure_resource_definition)
   - [Azure_VM](#azure_vm)
   - [Azure_VNet](#azure_vnet)
   - [Azure_Subnet](#azure_subnet)
   - [Azure_NSG](#azure_nsg)
   - [Azure_Storage](#azure_storage)
   - [Azure_SQL](#azure_sql)
+  - [Azure_PublicIP](#azure_publicip)
+  - [Azure_NATGateway](#azure_natgateway)
+  - [Azure_LoadBalancer](#azure_loadbalancer)
+
 - [数据验证规则](#数据验证规则)
 - [JSON格式字段Schema](#json格式字段schema)
 
@@ -295,7 +304,80 @@ db.r5.large, db.r5.xlarge, db.r5.2xlarge
 
 ---
 
+### AWS_InternetGateway
+
+**用途**: 定义AWS互联网网关
+
+| 列名 | 类型 | 必填 | 说明 | 验证规则 | 示例值 |
+|------|------|------|------|----------|--------|
+| ResourceName | 文本 | [必填] | 网关名称 | - | main-igw |
+| VPC | 引用 | [必填] | 关联的VPC | 必须存在 | main-vpc |
+| VPCExists | 下拉 | [必填] | VPC是否已存在 | y/n | n |
+
+---
+
+### AWS_NATGateway
+
+**用途**: 定义AWS NAT网关
+
+| 列名 | 类型 | 必填 | 说明 | 验证规则 | 示例值 |
+|------|------|------|------|----------|--------|
+| ResourceName | 文本 | [必填] | NAT网关名称 | - | main-nat-gw |
+| Subnet | 引用 | [必填] | 放置NAT的公共子网 | 必须存在 | public-subnet-1 |
+| SubnetExists | 下拉 | [必填] | 子网是否已存在 | y/n | n |
+| ConnectivityType | 下拉 | [可选] | 连接类型 | public/private | public |
+| InternetGateway | 引用 | [可选] | 依赖的IGW | public模式建议填写 | main-igw |
+
+---
+
+### AWS_ElasticIP
+
+**用途**: 定义AWS弹性IP
+
+| 列名 | 类型 | 必填 | 说明 | 验证规则 | 示例值 |
+|------|------|------|------|----------|--------|
+| ResourceName | 文本 | [必填] | EIP名称 | - | web-eip |
+| Domain | 下拉 | [可选] | 作用域 | vpc/standard | vpc |
+| Instance | 引用 | [可选] | 关联的EC2 | - | web-server-01 |
+| InstanceExists | 下拉 | [可选] | 实例是否已存在 | y/n | n |
+
+---
+
+### AWS_LoadBalancer
+
+**用途**: 定义AWS应用/网络负载均衡器
+
+| 列名 | 类型 | 必填 | 说明 | 验证规则 | 示例值 |
+|------|------|------|------|----------|--------|
+| ResourceName | 文本 | [必填] | LB名称 | - | web-alb |
+| Type | 下拉 | [必填] | LB类型 | application/network | application |
+| Scheme | 下拉 | [必填] | 方案 | internet-facing/internal | internet-facing |
+| VPC | 引用 | [必填] | 关联的VPC | - | main-vpc |
+| Subnets | 列表 | [必填] | 子网列表 | 逗号分隔 | pub-sub-1,pub-sub-2 |
+| SecurityGroups | 列表 | [可选] | 安全组列表 | ALB必填 | web-sg |
+| ListenerProtocol | 下拉 | [可选] | 监听协议 | HTTP/HTTPS/TCP/UDP | HTTP |
+| ListenerPort | 数字 | [可选] | 监听端口 | 1-65535 | 80 |
+| ListenerTargetGroup | 引用 | [可选] | 转发目标组 | 必须存在 | web-tg |
+
+---
+
+### AWS_TargetGroup
+
+**用途**: 定义AWS负载均衡目标组
+
+| 列名 | 类型 | 必填 | 说明 | 验证规则 | 示例值 |
+|------|------|------|------|----------|--------|
+| ResourceName | 文本 | [必填] | 目标组名称 | - | web-tg |
+| Port | 数字 | [必填] | 目标端口 | 1-65535 | 80 |
+| Protocol | 下拉 | [必填] | 协议 | HTTP/HTTPS/TCP/UDP | HTTP |
+| TargetType | 下拉 | [必填] | 目标类型 | instance/ip/lambda | instance |
+| HealthCheckPath | 文本 | [可选] | 健康检查路径 | HTTP/HTTPS默认/ | /health |
+| Targets | JSON | [可选] | 注册目标 | JSON数组 | [{"Id": "i-xxx", "Port": 80}] |
+
+---
+
 ## Azure资源定义
+
 
 ### Azure_VM
 
@@ -637,7 +719,51 @@ Microsoft.Storage, Microsoft.Sql, Microsoft.KeyVault, Microsoft.ServiceBus, Micr
 
 ---
 
+### Azure_PublicIP
+
+**用途**: 定义Azure公共IP地址
+
+| 列名 | 类型 | 必填 | 说明 | 验证规则 | 示例值 |
+|------|------|------|------|----------|--------|
+| ResourceName | 文本 | [必填] | 公共IP名称 | - | web-pip |
+| ResourceGroup | 文本 | [必填] | 资源组 | - | rg-web-prod |
+| ResourceGroupExists | 下拉 | [必填] | 资源组是否已存在 | y/n | n |
+| SKU | 下拉 | [必填] | SKU层级 | Basic/Standard | Standard |
+| AllocationMethod | 下拉 | [必填] | 分配方式 | Static/Dynamic | Static |
+
+---
+
+### Azure_NATGateway
+
+**用途**: 定义Azure NAT网关
+
+| 列名 | 类型 | 必填 | 说明 | 验证规则 | 示例值 |
+|------|------|------|------|----------|--------|
+| ResourceName | 文本 | [必填] | NAT网关名称 | - | web-nat-gw |
+| ResourceGroup | 文本 | [必填] | 资源组 | - | rg-web-prod |
+| SKU | 下拉 | [必填] | SKU | 必须是Standard | Standard |
+| IdleTimeoutMinutes | 数字 | [可选] | 空闲超时 | 4-120 | 10 |
+| PublicIP | 引用 | [可选] | 关联的公共IP | 建议引用Azure_PublicIP | web-pip |
+
+---
+
+### Azure_LoadBalancer
+
+**用途**: 定义Azure负载均衡器
+
+| 列名 | 类型 | 必填 | 说明 | 验证规则 | 示例值 |
+|------|------|------|------|----------|--------|
+| ResourceName | 文本 | [必填] | 负载均衡器名称 | - | web-lb |
+| ResourceGroup | 文本 | [必填] | 资源组 | - | rg-web-prod |
+| SKU | 下拉 | [必填] | SKU层级 | Basic/Standard | Standard |
+| FrontendIPName | 文本 | [必填] | 前端IP配置名称 | - | web-frontend |
+| PublicIP | 引用 | [可选] | 公网LB所需PIP | 必须存在 | web-pip |
+| Subnet | 引用 | [可选] | 内网LB所需子网 | 必须存在 | app-subnet |
+
+---
+
 ## 数据验证规则
+
 
 ### 1. CIDR格式验证
 ```regex
@@ -663,13 +789,23 @@ Microsoft.Storage, Microsoft.Sql, Microsoft.KeyVault, Microsoft.ServiceBus, Micr
 - Azure存储账户名称
 - Azure SQL服务器名称
 
-### 6. 命名规范验证
-- AWS资源: 字母、数字、连字符(-)、下划线(_)
-- Azure资源: 根据资源类型有不同要求（详见各资源说明）
+### 6. 命名规范与自动清洗 (safe_id)
+系统内置了强大的标识符清洗机制，用户在 `ResourceName` 中可以放心使用非标准字符：
+- **空格与中划线**: 自动转换为下划线 (`_`)。
+- **特殊字符**: 自动移除所有非字母数字字符。
+- **数字开头**: 如果名称以数字开头，系统会自动补全 `res_` 前缀（例如 `1-web` -> `res_1_web`）。
+- **大小写**: 统一转换为小写以符合 Terraform 惯例。
+
+### 7. 安全默认值注入
+为了提升基础设施的基准安全性，当用户在 Excel 中留空以下关键字段时，系统会自动注入安全默认值：
+- **AWS S3**: `PublicAccess` 默认为 `false` (阻止所有公网访问)。
+- **Azure Storage**: `EnableHTTPSOnly` 默认为 `true`，`MinimumTLSVersion` 默认为 `TLS1_2`。
+- **安全组/NSG**: 默认创建全拒绝的出站规则（除非用户另行定义）。
 
 ---
 
 ## JSON格式字段Schema
+
 
 ### SecurityGroup IngressRules/EgressRules Schema
 ```json

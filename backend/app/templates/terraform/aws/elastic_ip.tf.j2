@@ -1,0 +1,48 @@
+{# AWS Elastic IP Terraform Template #}
+{% set safe_res_id = resource_name | safe_id %}
+resource "aws_eip" "{{ safe_res_id }}" {
+  domain = "{{ properties.Domain | default('vpc') }}"
+
+  {% if properties.Instance %}
+  {% set instance_ref = "aws_instance." + properties.Instance | safe_id + ".id" if properties.InstanceExists | default('n') | lower not in ['y', 'yes'] else "data.aws_instance." + properties.Instance | safe_id + ".id" %}
+  instance = {{ instance_ref }}
+  {% endif %}
+
+  {% if properties.NetworkInterface %}
+  {% set eni_ref = "aws_network_interface." + properties.NetworkInterface | safe_id + ".id" if properties.NetworkInterfaceExists | default('n') | lower not in ['y', 'yes'] else "data.aws_network_interface." + properties.NetworkInterface | safe_id + ".id" %}
+  network_interface = {{ eni_ref }}
+  {% endif %}
+
+  {% if properties.AssociateWithPrivateIP %}
+  associate_with_private_ip = "{{ properties.AssociateWithPrivateIP }}"
+  {% endif %}
+
+  tags = merge(
+    {
+      Name        = "{{ resource_name }}"
+      Environment = "{{ properties.Environment | default('') }}"
+      Project     = "{{ properties.Project | default('') }}"
+    },
+    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
+  )
+}
+
+{% if properties.Instance and properties.InstanceExists | default('n') | lower in ['y', 'yes'] %}
+# Data source for existing EC2 instance
+data "aws_instance" "{{ properties.Instance | safe_id }}" {
+  filter {
+    name   = "tag:Name"
+    values = ["{{ properties.Instance }}"]
+  }
+}
+{% endif %}
+
+{% if properties.NetworkInterface and properties.NetworkInterfaceExists | default('n') | lower in ['y', 'yes'] %}
+# Data source for existing Network Interface
+data "aws_network_interface" "{{ properties.NetworkInterface | safe_id }}" {
+  filter {
+    name   = "tag:Name"
+    values = ["{{ properties.NetworkInterface }}"]
+  }
+}
+{% endif %}

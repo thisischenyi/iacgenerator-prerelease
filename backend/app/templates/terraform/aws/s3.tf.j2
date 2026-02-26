@@ -1,5 +1,6 @@
 {# AWS S3 Bucket Terraform Template #}
-resource "aws_s3_bucket" "{{ resource_name | replace('-', '_') }}" {
+{% set safe_res_id = resource_name | safe_id %}
+resource "aws_s3_bucket" "{{ safe_res_id }}" {
   bucket = "{{ properties.BucketName | default(resource_name) }}"
 
   tags = merge(
@@ -13,8 +14,8 @@ resource "aws_s3_bucket" "{{ resource_name | replace('-', '_') }}" {
 }
 
 {% if properties.Versioning %}
-resource "aws_s3_bucket_versioning" "{{ resource_name | replace('-', '_') }}" {
-  bucket = aws_s3_bucket.{{ resource_name | replace('-', '_') }}.id
+resource "aws_s3_bucket_versioning" "{{ safe_res_id }}" {
+  bucket = aws_s3_bucket.{{ safe_res_id }}.id
 
   versioning_configuration {
     status = "Enabled"
@@ -23,8 +24,8 @@ resource "aws_s3_bucket_versioning" "{{ resource_name | replace('-', '_') }}" {
 {% endif %}
 
 {% if properties.Encryption %}
-resource "aws_s3_bucket_server_side_encryption_configuration" "{{ resource_name | replace('-', '_') }}" {
-  bucket = aws_s3_bucket.{{ resource_name | replace('-', '_') }}.id
+resource "aws_s3_bucket_server_side_encryption_configuration" "{{ safe_res_id }}" {
+  bucket = aws_s3_bucket.{{ safe_res_id }}.id
 
   rule {
     apply_server_side_encryption_by_default {
@@ -37,9 +38,9 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "{{ resource_name 
 }
 {% endif %}
 
-{% if properties.PublicAccess == false %}
-resource "aws_s3_bucket_public_access_block" "{{ resource_name | replace('-', '_') }}" {
-  bucket = aws_s3_bucket.{{ resource_name | replace('-', '_') }}.id
+{% if properties.PublicAccess == False or properties.PublicAccess == 'false' %}
+resource "aws_s3_bucket_public_access_block" "{{ safe_res_id }}" {
+  bucket = aws_s3_bucket.{{ safe_res_id }}.id
 
   block_public_acls       = true
   block_public_policy     = true

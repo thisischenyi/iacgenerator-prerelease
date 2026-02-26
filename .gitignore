@@ -26,3 +26,11 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# 忽略 Windows 保留名称文件
+nul
+con
+prn
+aux
+com1
+lpt1

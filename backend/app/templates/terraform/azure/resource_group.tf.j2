@@ -1,7 +1,7 @@
 {# Azure Resource Group Terraform Template #}
 {# Note: Resource Group is often created separately, but we include it for completeness #}
 {% if not resource.skip_resource_group_creation %}
-resource "azurerm_resource_group" "{{ resource_name | replace('-', '_') }}" {
+resource "azurerm_resource_group" "{{ resource_name | safe_id }}" {
   name     = "{{ resource_name }}"
   location = "{{ properties.Location }}"
 

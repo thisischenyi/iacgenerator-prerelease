@@ -1,13 +1,14 @@
 {# Azure Virtual Network Terraform Template #}
-{% set resource_group_ref = "azurerm_resource_group." + properties.ResourceGroup | replace('-', '_') + ".name" if not resource.skip_resource_group_creation else "\"" + properties.ResourceGroup + "\"" %}
-resource "azurerm_virtual_network" "{{ resource_name | replace('-', '_') }}" {
+{% set safe_res_id = resource_name | safe_id %}
+{% set resource_group_ref = properties | azure_rg_ref(resource) %}
+resource "azurerm_virtual_network" "{{ safe_res_id }}" {
   name                = "{{ resource_name }}"
   location            = "{{ properties.Location }}"
   resource_group_name = {{ resource_group_ref }}
-  address_space       = {% if properties.AddressSpace is string %}{{ properties.AddressSpace.split(',') | map('trim') | list | tojson }}{% else %}{{ properties.AddressSpace | tojson }}{% endif %}
+  address_space       = {{ properties.AddressSpace | tojson }}
 
   {% if properties.DnsServers %}
-  dns_servers = {% if properties.DnsServers is string %}{{ properties.DnsServers.split(',') | map('trim') | list | tojson }}{% else %}{{ properties.DnsServers | tojson }}{% endif %}
+  dns_servers = {{ properties.DnsServers | tojson }}
   {% endif %}
 
   tags = merge(

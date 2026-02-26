@@ -1,13 +1,14 @@
 {# AWS Security Group Terraform Template #}
 {% set vpc_exists = properties.VPCExists | default('n') | lower %}
 {% set vpc = properties.VPC %}
-resource "aws_security_group" "{{ resource_name | replace('-', '_') }}" {
+{% set safe_res_id = resource_name | safe_id %}
+resource "aws_security_group" "{{ safe_res_id }}" {
   name        = "{{ resource_name }}"
   description = "{{ properties.Description | default('Managed by Terraform') }}"
   {% if vpc_exists == 'y' %}
   vpc_id      = "{{ vpc }}"
   {% else %}
-  vpc_id      = aws_vpc.{{ vpc | replace('-', '_') }}.id
+  vpc_id      = aws_vpc.{{ vpc | safe_id }}.id
   {% endif %}
 
   {% if properties.IngressRules %}

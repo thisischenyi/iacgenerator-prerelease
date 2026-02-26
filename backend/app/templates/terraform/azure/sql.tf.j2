@@ -1,31 +1,36 @@
 {# Azure SQL Database Terraform Template #}
-{% set resource_group_ref = "azurerm_resource_group." + properties.ResourceGroup | replace('-', '_') + ".name" if not resource.skip_resource_group_creation else "\"" + properties.ResourceGroup + "\"" %}
+{% set safe_res_id = resource_name | safe_id %}
+{% set resource_group_ref = properties | azure_rg_ref(resource) %}
 {% set vnet_exists = properties.VNetExists | default('n') | lower %}
 {% set subnet_exists = properties.SubnetExists | default('n') | lower %}
 {% set vnet_ref = properties.VNet %}
 {% set subnet_ref = properties.Subnet %}
+{% set public_network_access_raw = properties.PublicNetworkAccess | default('true') | string | lower %}
+{% set public_network_access_enabled = public_network_access_raw not in ['false', 'disabled', 'deny', 'no', '0'] %}
 {% if vnet_exists == 'y' %}
   {% set vnet_name_ref = "\"" + vnet_ref + "\"" %}
 {% else %}
-  {% set vnet_name_ref = "azurerm_virtual_network." + vnet_ref | replace('-', '_') + ".name" %}
+  {% set vnet_name_ref = "azurerm_virtual_network." + vnet_ref | safe_id + ".name" %}
 {% endif %}
 {% if subnet_exists == 'y' %}
   {% set subnet_id_ref = "\"" + subnet_ref + "\"" %}
 {% else %}
-  {% set subnet_id_ref = "azurerm_subnet." + subnet_ref | replace('-', '_') + ".id" %}
+  {% set subnet_id_ref = "azurerm_subnet." + subnet_ref | safe_id + ".id" %}
 {% endif %}
-resource "azurerm_mssql_server" "{{ resource_name | replace('-', '_') }}_server" {
+resource "azurerm_mssql_server" "{{ safe_res_id }}_server" {
   name                         = "{{ properties.ServerName | default(resource_name) | replace('-', '') | lower }}"
   resource_group_name          = {{ resource_group_ref }}
   location                     = "{{ properties.Location }}"
-  version                      = "{{ properties.SQLVersion | default('12.0') }}"
+  version                      = "{{ properties.SQLVersion | default('12.0') | string }}{% if '.' not in properties.SQLVersion | default('12.0') | string %}.0{% endif %}"
   administrator_login          = "{{ properties.ServerAdminLogin }}"
   administrator_login_password = "{{ properties.ServerAdminPassword }}"
   minimum_tls_version          = "{{ properties.MinimalTLSVersion | default('1.2') }}"
 
-  {% if properties.PublicNetworkAccess is defined %}
-  public_network_access_enabled = {{ properties.PublicNetworkAccess | lower }}
-  {% endif %}
+  identity {
+    type = "SystemAssigned"
+  }
+
+  public_network_access_enabled = {{ public_network_access_enabled | lower }}
 
   tags = merge(
     {
@@ -36,9 +41,9 @@ resource "azurerm_mssql_server" "{{ resource_name | replace('-', '_') }}_server"
   )
 }
 
-resource "azurerm_mssql_database" "{{ resource_name | replace('-', '_') }}" {
+resource "azurerm_mssql_database" "{{ safe_res_id }}" {
   name           = "{{ resource_name }}"
-  server_id      = azurerm_mssql_server.{{ resource_name | replace('-', '_') }}_server.id
+  server_id      = azurerm_mssql_server.{{ safe_res_id }}_server.id
   collation      = "{{ properties.Collation | default('SQL_Latin1_General_CP1_CI_AS') }}"
   license_type   = "{{ properties.LicenseType | default('LicenseIncluded') }}"
   max_size_gb    = {{ properties.MaxSizeGB | default(2) }}
@@ -59,13 +64,48 @@ resource "azurerm_mssql_database" "{{ resource_name | replace('-', '_') }}" {
   )
 }
 
-{% if properties.FirewallRules %}
+{% if properties.FirewallRules and public_network_access_enabled %}
 {% for rule in properties.FirewallRules %}
-resource "azurerm_mssql_firewall_rule" "{{ resource_name | replace('-', '_') }}_{{ rule.name | replace('-', '_') }}" {
+resource "azurerm_mssql_firewall_rule" "{{ safe_res_id }}_{{ rule.name | safe_id }}" {
   name             = "{{ rule.name }}"
-  server_id        = azurerm_mssql_server.{{ resource_name | replace('-', '_') }}_server.id
+  server_id        = azurerm_mssql_server.{{ safe_res_id }}_server.id
   start_ip_address = "{{ rule.start_ip }}"
   end_ip_address   = "{{ rule.end_ip }}"
 }
 {% endfor %}
+{% endif %}
+
+{% if properties.VirtualNetworkRules and public_network_access_enabled %}
+{% for rule in properties.VirtualNetworkRules %}
+resource "azurerm_mssql_virtual_network_rule" "{{ safe_res_id }}_vnet_rule_{{ loop.index }}" {
+  name      = "{{ safe_res_id }}-vnet-rule-{{ loop.index }}"
+  server_id = azurerm_mssql_server.{{ safe_res_id }}_server.id
+  subnet_id = {{ subnet_id_ref }}
+}
+{% endfor %}
+{% endif %}
+
+{% if properties.ThreatDetection and properties.ThreatDetection|string()|lower == 'enabled' %}
+resource "azurerm_mssql_server_security_alert_policy" "{{ safe_res_id }}_security_alert" {
+  resource_group_name        = {{ resource_group_ref }}
+  server_name                = azurerm_mssql_server.{{ safe_res_id }}_server.name
+  state                      = "Enabled"
+  email_account_admins       = true
+  storage_endpoint           = azurerm_storage_account.sql_threat_detection.primary_blob_endpoint
+  storage_account_access_key = azurerm_storage_account.sql_threat_detection.primary_access_key
+  retention_days             = {{ properties.BackupRetentionDays | default(7) }}
+}
+{% endif %}
+
+# Corrected auditing policy using the modern AzureRM provider v4.x resource type
+{% if properties.AuditingEnabled and properties.AuditingEnabled|string()|lower == 'true' and properties.AuditingStorageEndpoint %}
+resource "azurerm_mssql_server_extended_auditing_policy" "{{ safe_res_id }}_auditing" {
+  server_id                               = azurerm_mssql_server.{{ safe_res_id }}_server.id
+  storage_endpoint                        = "{{ properties.AuditingStorageEndpoint }}"
+  {% if properties.AuditingStorageAccessKey %}
+  storage_account_access_key              = "{{ properties.AuditingStorageAccessKey }}"
+  {% endif %}
+  retention_in_days                       = {{ properties.BackupRetentionDays | default(7) }}
+  log_monitoring_enabled                  = true
+}
 {% endif %}

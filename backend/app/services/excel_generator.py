@@ -122,6 +122,75 @@ class ExcelGeneratorService:
             "AutoMinorVersionUpgrade",
             "DeletionProtection",
         ],
+        "AWS_InternetGateway": [
+            "Region",
+            "VPC",
+            "VPCExists",  # y/n - whether the VPC already exists
+        ],
+        "AWS_NATGateway": [
+            "Region",
+            "Subnet",
+            "SubnetExists",  # y/n - whether the Subnet already exists
+            "InternetGateway",
+            "InternetGatewayExists",  # y/n - whether the IGW already exists
+            "ConnectivityType",  # public or private
+        ],
+        "AWS_ElasticIP": [
+            "Region",
+            "Domain",  # vpc or standard (default vpc)
+            "Instance",  # EC2 instance to associate with
+            "InstanceExists",  # y/n - whether the Instance already exists
+            "NetworkInterface",  # Network interface to associate with
+            "NetworkInterfaceExists",  # y/n - whether the ENI already exists
+            "PublicIPv4Pool",  # Optional: BYOIP pool
+        ],
+        "AWS_LoadBalancer": [
+            "Region",
+            "Type",  # application or network
+            "Scheme",  # internet-facing or internal
+            "VPC",
+            "VPCExists",  # y/n - whether the VPC already exists
+            "Subnets",  # JSON array of subnet names, e.g., ["subnet-1", "subnet-2"]
+            "SubnetExists",  # y/n - whether the Subnets already exist
+            "SecurityGroups",  # ALB only, e.g., ["sg-1"]
+            "SecurityGroupsExist",  # y/n - whether the Security Groups already exist
+            "IPAddressType",  # ipv4 or dualstack
+            "IdleTimeout",  # ALB: 1-4000 seconds (default 60)
+            "CrossZoneEnabled",  # true or false
+            "DeletionProtection",  # true or false
+            # Listener Configuration
+            "ListenerProtocol",  # HTTP, HTTPS, TCP, UDP, TLS
+            "ListenerPort",  # 1-65535
+            "ListenerDefaultAction",  # forward (default)
+            "ListenerTargetGroup",  # Name of the target group to forward to
+            "ListenerTargetGroupExists",  # y/n - whether the Target Group already exists
+        ],
+        "AWS_TargetGroup": [
+            "Region",
+            "Port",  # 1-65535
+            "Protocol",  # HTTP, HTTPS, TCP, UDP, TLS, GENEVE
+            "VPC",
+            "VPCExists",  # y/n - whether the VPC already exists
+            "TargetType",  # instance, ip, lambda, alb
+            # Health Check Configuration
+            "HealthCheckProtocol",  # HTTP, HTTPS, TCP
+            "HealthCheckPort",  # traffic-port or specific port
+            "HealthCheckPath",  # e.g., /health (for HTTP/HTTPS)
+            "HealthCheckInterval",  # 5-300 seconds (default 30)
+            "HealthyThreshold",  # 2-10 (default 3)
+            "UnhealthyThreshold",  # 2-10 (default 3)
+            "HealthCheckTimeout",  # 2-120 seconds (default 5 for HTTP/HTTPS, 10 for TCP)
+            "SuccessCode",  # e.g., 200-299 (for HTTP/HTTPS)
+            # Advanced Configuration
+            "DeregistrationDelay",  # 0-3600 seconds (default 300)
+            "SlowStart",  # 30-900 seconds (default 0)
+            # Stickiness Configuration
+            "StickinessEnabled",  # true or false
+            "StickinessType",  # lb_cookie (default) or app_cookie
+            "StickinessCookieDuration",  # 1-604800 seconds (default 86400)
+            # Targets (JSON array)
+            "Targets",  # e.g., [{"Id": "i-xxx", "Port": 80}]
+        ],
     }
 
     AZURE_RESOURCES = {
@@ -159,6 +228,8 @@ class ExcelGeneratorService:
             "DNSServers",
         ],
         "Azure_Subnet": [
+            "ResourceGroup",
+            "ResourceGroupExists",  # y/n - whether the resource group already exists
             "VNet",
             "VNetExists",  # y/n - whether the VNet already exists
             "AddressPrefix",
@@ -213,6 +284,61 @@ class ExcelGeneratorService:
             "LongTermRetention",
             "ThreatDetection",
             "AuditingEnabled",
+            "AuditingStorageEndpoint",  # Optional blob endpoint for SQL auditing
+            "AuditingStorageAccessKey",  # Optional access key for SQL auditing
+        ],
+        "Azure_PublicIP": [
+            "ResourceGroup",
+            "ResourceGroupExists",  # y/n - whether the resource group already exists
+            "Location",
+            "AllocationMethod",  # Static or Dynamic
+            "SKU",  # Basic or Standard
+            "AvailabilityZone",  # 1, 2, 3, Zone-Redundant, or No-Zone
+            "IPVersion",  # IPv4 or IPv6
+            "IdleTimeoutMinutes",  # 4-30
+            "DomainNameLabel",  # Optional DNS name label
+        ],
+        "Azure_NATGateway": [
+            "ResourceGroup",
+            "ResourceGroupExists",  # y/n - whether the resource group already exists
+            "Location",
+            "SKU",  # Standard only
+            "IdleTimeoutMinutes",  # 4-120
+            "AvailabilityZone",  # Optional availability zone
+            "PublicIP",  # Associated public IP resource name
+            "PublicIPExists",  # y/n - whether the Public IP already exists
+            "Subnet",  # Associated subnet resource name
+            "SubnetExists",  # y/n - whether the Subnet already exists
+            "VNet",  # VNet containing the subnet (for data source)
+        ],
+        "Azure_LoadBalancer": [
+            "ResourceGroup",
+            "ResourceGroupExists",  # y/n - whether the resource group already exists
+            "Location",
+            "SKU",  # Basic or Standard
+            "FrontendIPName",  # Name of the frontend IP configuration
+            "PublicIP",  # Public IP for public load balancer
+            "PublicIPExists",  # y/n - whether the Public IP already exists
+            "Subnet",  # Subnet for internal load balancer
+            "SubnetExists",  # y/n - whether the Subnet already exists
+            "VNet",  # VNet containing the subnet
+            "PrivateIPAddress",  # Private IP for internal LB (optional)
+            "PrivateIPAddressAllocation",  # Dynamic or Static
+            "BackendPoolName",  # Backend address pool name
+            "BackendPoolResources",  # Backend resources in this Excel, e.g. vm1,vm2
+            "HealthProbeName",  # Health probe name
+            "HealthProbeProtocol",  # Tcp, Http, Https
+            "HealthProbePort",  # Port for health probe
+            "HealthProbePath",  # Path for Http/Https probe
+            "HealthProbeInterval",  # Probe interval in seconds
+            "HealthProbeThreshold",  # Number of failures before unhealthy
+            "LBRuleName",  # Load balancing rule name
+            "LBRuleProtocol",  # Tcp, Udp, All
+            "LBRuleFrontendPort",  # Frontend port
+            "LBRuleBackendPort",  # Backend port
+            "LBRuleIdleTimeout",  # Idle timeout in minutes
+            "LBRuleEnableFloatingIP",  # Enable floating IP
+            "LBRuleDisableOutboundSnat",  # Disable outbound SNAT
         ],
     }
 
@@ -305,6 +431,8 @@ class ExcelGeneratorService:
             "ResourceName",
             "Environment",
             "Project",
+            "ResourceGroup",
+            "ResourceGroupExists",
             "VNet",
             "VNetExists",  # New required field
             "AddressPrefix",
@@ -343,6 +471,77 @@ class ExcelGeneratorService:
             "VNetExists",  # New required field
             "Subnet",
             "SubnetExists",  # New required field
+        ],
+        "AWS_InternetGateway": [
+            "ResourceName",
+            "Environment",
+            "Project",
+            "Region",
+            "VPC",
+            "VPCExists",
+        ],
+        "AWS_NATGateway": [
+            "ResourceName",
+            "Environment",
+            "Project",
+            "Region",
+            "Subnet",
+            "SubnetExists",
+        ],
+        "Azure_PublicIP": [
+            "ResourceName",
+            "Environment",
+            "Project",
+            "ResourceGroup",
+            "ResourceGroupExists",
+            "Location",
+            "AllocationMethod",
+            "SKU",
+        ],
+        "Azure_NATGateway": [
+            "ResourceName",
+            "Environment",
+            "Project",
+            "ResourceGroup",
+            "ResourceGroupExists",
+            "Location",
+        ],
+        "AWS_ElasticIP": [
+            "ResourceName",
+            "Environment",
+            "Project",
+            "Region",
+        ],
+        "AWS_LoadBalancer": [
+            "ResourceName",
+            "Environment",
+            "Project",
+            "Region",
+            "Type",
+            "Scheme",
+            "VPC",
+            "VPCExists",
+        ],
+        "AWS_TargetGroup": [
+            "ResourceName",
+            "Environment",
+            "Project",
+            "Region",
+            "Port",
+            "Protocol",
+            "VPC",
+            "VPCExists",
+            "TargetType",
+        ],
+        "Azure_LoadBalancer": [
+            "ResourceName",
+            "Environment",
+            "Project",
+            "ResourceGroup",
+            "ResourceGroupExists",
+            "Location",
+            "SKU",
+            "FrontendIPName",
         ],
     }
 
@@ -478,8 +677,8 @@ class ExcelGeneratorService:
             "VMSize": "Standard_D2s_v3",
             "OSType": "Linux",
             "ImagePublisher": "Canonical",
-            "ImageOffer": "UbuntuServer",
-            "ImageSKU": "18.04-LTS",
+            "ImageOffer": "0001-com-ubuntu-server-jammy",
+            "ImageSKU": "22_04-lts",
             "ImageVersion": "latest",
             "AdminUsername": "azureuser",
             "AuthenticationType": "SSH",
@@ -511,6 +710,8 @@ class ExcelGeneratorService:
             "Owner": "john.doe@example.com",
             "CostCenter": "IT-1234",
             "Tags": '{"Tier": "Web"}',
+            "ResourceGroup": "rg-myproject-prod",
+            "ResourceGroupExists": "n",  # Create new resource group
             "VNet": "main-vnet",
             "VNetExists": "n",  # Create new VNet
             "AddressPrefix": "10.0.1.0/24",
@@ -581,6 +782,178 @@ class ExcelGeneratorService:
             "LongTermRetention": '{"weekly_retention": "P4W", "monthly_retention": "P12M"}',
             "ThreatDetection": "Enabled",
             "AuditingEnabled": "true",
+            "AuditingStorageEndpoint": "",
+            "AuditingStorageAccessKey": "",
+        },
+        "AWS_InternetGateway": {
+            "ResourceName": "main-igw",
+            "Environment": "Production",
+            "Project": "MyProject",
+            "Owner": "john.doe@example.com",
+            "CostCenter": "IT-1234",
+            "Tags": '{"Network": "Main"}',
+            "Region": "us-east-1",
+            "VPC": "main-vpc",
+            "VPCExists": "n",  # Create new VPC
+        },
+        "AWS_NATGateway": {
+            "ResourceName": "main-nat",
+            "Environment": "Production",
+            "Project": "MyProject",
+            "Owner": "john.doe@example.com",
+            "CostCenter": "IT-1234",
+            "Tags": '{"Network": "NAT"}',
+            "Region": "us-east-1",
+            "Subnet": "public-subnet-1",
+            "SubnetExists": "n",  # Create new Subnet
+            "InternetGateway": "main-igw",
+            "InternetGatewayExists": "n",  # Create new IGW
+            "ConnectivityType": "public",
+        },
+        "Azure_PublicIP": {
+            "ResourceName": "web-pip",
+            "Environment": "Production",
+            "Project": "MyProject",
+            "Owner": "john.doe@example.com",
+            "CostCenter": "IT-1234",
+            "Tags": '{"Purpose": "WebServer"}',
+            "ResourceGroup": "rg-myproject-prod",
+            "ResourceGroupExists": "n",  # Create new resource group
+            "Location": "eastus",
+            "AllocationMethod": "Static",
+            "SKU": "Standard",
+            "AvailabilityZone": "1",
+            "IPVersion": "IPv4",
+            "IdleTimeoutMinutes": "4",
+            "DomainNameLabel": "mywebapp",
+        },
+        "Azure_NATGateway": {
+            "ResourceName": "main-nat-gateway",
+            "Environment": "Production",
+            "Project": "MyProject",
+            "Owner": "john.doe@example.com",
+            "CostCenter": "IT-1234",
+            "Tags": '{"Network": "NAT"}',
+            "ResourceGroup": "rg-myproject-prod",
+            "ResourceGroupExists": "n",  # Create new resource group
+            "Location": "eastus",
+            "SKU": "Standard",
+            "IdleTimeoutMinutes": "10",
+            "AvailabilityZone": "1",
+            "PublicIP": "nat-pip",
+            "PublicIPExists": "n",  # Create new Public IP
+            "Subnet": "private-subnet",
+            "SubnetExists": "n",  # Create new Subnet
+            "VNet": "main-vnet",
+        },
+        "AWS_ElasticIP": {
+            "ResourceName": "web-eip",
+            "Environment": "Production",
+            "Project": "MyProject",
+            "Owner": "john.doe@example.com",
+            "CostCenter": "IT-1234",
+            "Tags": '{"Purpose": "WebServer"}',
+            "Region": "us-east-1",
+            "Domain": "vpc",
+            "Instance": "web-server-01",
+            "InstanceExists": "n",  # Create new instance
+            "NetworkInterface": "",
+            "NetworkInterfaceExists": "",
+            "PublicIPv4Pool": "",
+        },
+        "Azure_LoadBalancer": {
+            "ResourceName": "web-lb",
+            "Environment": "Production",
+            "Project": "MyProject",
+            "Owner": "john.doe@example.com",
+            "CostCenter": "IT-1234",
+            "Tags": '{"Purpose": "WebLoadBalancer"}',
+            "ResourceGroup": "rg-myproject-prod",
+            "ResourceGroupExists": "n",  # Create new resource group
+            "Location": "eastus",
+            "SKU": "Standard",
+            "FrontendIPName": "web-frontend",
+            "PublicIP": "lb-pip",
+            "PublicIPExists": "n",  # Create new Public IP
+            "Subnet": "",
+            "SubnetExists": "",
+            "VNet": "",
+            "PrivateIPAddress": "",
+            "PrivateIPAddressAllocation": "Dynamic",
+            "BackendPoolName": "web-backend-pool",
+            "BackendPoolResources": "app-vm-01,app-vm-02",
+            "HealthProbeName": "web-health-probe",
+            "HealthProbeProtocol": "Tcp",
+            "HealthProbePort": "80",
+            "HealthProbePath": "",
+            "HealthProbeInterval": "5",
+            "HealthProbeThreshold": "2",
+            "LBRuleName": "web-lb-rule",
+            "LBRuleProtocol": "Tcp",
+            "LBRuleFrontendPort": "80",
+            "LBRuleBackendPort": "80",
+            "LBRuleIdleTimeout": "4",
+            "LBRuleEnableFloatingIP": "false",
+            "LBRuleDisableOutboundSnat": "false",
+        },
+        "AWS_LoadBalancer": {
+            "ResourceName": "web-alb",
+            "Environment": "Production",
+            "Project": "MyProject",
+            "Owner": "john.doe@example.com",
+            "CostCenter": "IT-1234",
+            "Tags": '{"Purpose": "WebLoadBalancer", "Tier": "Frontend"}',
+            "Region": "us-east-1",
+            "Type": "application",  # or "network" for NLB
+            "Scheme": "internet-facing",  # or "internal"
+            "VPC": "main-vpc",
+            "VPCExists": "n",  # Create new VPC
+            "Subnets": '["public-subnet-1", "public-subnet-2"]',
+            "SubnetExists": "n",  # Create new Subnets
+            "SecurityGroups": '["web-sg"]',
+            "SecurityGroupsExist": "n",  # Create new Security Group
+            "IPAddressType": "ipv4",  # or "dualstack"
+            "IdleTimeout": "60",  # ALB only: 1-4000 seconds
+            "CrossZoneEnabled": "true",
+            "DeletionProtection": "false",
+            # Listener Configuration
+            "ListenerProtocol": "HTTP",  # HTTP, HTTPS, TCP, UDP, TLS
+            "ListenerPort": "80",
+            "ListenerDefaultAction": "forward",
+            "ListenerTargetGroup": "web-tg",
+            "ListenerTargetGroupExists": "n",  # Create new Target Group
+        },
+        "AWS_TargetGroup": {
+            "ResourceName": "web-tg",
+            "Environment": "Production",
+            "Project": "MyProject",
+            "Owner": "john.doe@example.com",
+            "CostCenter": "IT-1234",
+            "Tags": '{"Purpose": "WebTargetGroup", "Service": "Web"}',
+            "Region": "us-east-1",
+            "Port": "80",
+            "Protocol": "HTTP",  # HTTP, HTTPS, TCP, UDP, TLS, GENEVE
+            "VPC": "main-vpc",
+            "VPCExists": "n",  # Create new VPC
+            "TargetType": "instance",  # instance, ip, lambda, alb
+            # Health Check Configuration
+            "HealthCheckProtocol": "HTTP",  # HTTP, HTTPS, TCP
+            "HealthCheckPort": "traffic-port",  # or specific port like "80"
+            "HealthCheckPath": "/health",
+            "HealthCheckInterval": "30",
+            "HealthyThreshold": "3",
+            "UnhealthyThreshold": "3",
+            "HealthCheckTimeout": "5",
+            "SuccessCode": "200-299",
+            # Advanced Configuration
+            "DeregistrationDelay": "300",
+            "SlowStart": "0",
+            # Stickiness Configuration
+            "StickinessEnabled": "false",
+            "StickinessType": "lb_cookie",  # or "app_cookie"
+            "StickinessCookieDuration": "86400",
+            # Targets (optional - can be added later)
+            "Targets": '[{"Id": "i-1234567890abcdef0", "Port": 80}]',
         },
     }
 
@@ -833,6 +1206,81 @@ class ExcelGeneratorService:
             self._add_dropdown(
                 sheet, columns, "SecurityGroupsExist", ["y", "n"], start_row=2
             )
+            # Internet Gateway and NAT Gateway specific dropdowns
+            self._add_dropdown(
+                sheet, columns, "InternetGatewayExists", ["y", "n"], start_row=2
+            )
+            self._add_dropdown(
+                sheet, columns, "ConnectivityType", ["public", "private"], start_row=2
+            )
+            # Elastic IP specific dropdowns
+            self._add_dropdown(
+                sheet, columns, "Domain", ["vpc", "standard"], start_row=2
+            )
+            self._add_dropdown(
+                sheet, columns, "InstanceExists", ["y", "n"], start_row=2
+            )
+            self._add_dropdown(
+                sheet, columns, "NetworkInterfaceExists", ["y", "n"], start_row=2
+            )
+            # Load Balancer specific dropdowns
+            self._add_dropdown(
+                sheet, columns, "Type", ["application", "network"], start_row=2
+            )
+            self._add_dropdown(
+                sheet, columns, "Scheme", ["internet-facing", "internal"], start_row=2
+            )
+            self._add_dropdown(
+                sheet, columns, "IPAddressType", ["ipv4", "dualstack"], start_row=2
+            )
+            self._add_dropdown(
+                sheet, columns, "CrossZoneEnabled", self.BOOLEAN_OPTIONS, start_row=2
+            )
+            self._add_dropdown(
+                sheet, columns, "SecurityGroupsExist", ["y", "n"], start_row=2
+            )
+            self._add_dropdown(
+                sheet,
+                columns,
+                "ListenerProtocol",
+                ["HTTP", "HTTPS", "TCP", "UDP", "TLS"],
+                start_row=2,
+            )
+            self._add_dropdown(
+                sheet, columns, "ListenerTargetGroupExists", ["y", "n"], start_row=2
+            )
+            # Target Group specific dropdowns
+            self._add_dropdown(
+                sheet,
+                columns,
+                "Protocol",
+                ["HTTP", "HTTPS", "TCP", "UDP", "TLS", "GENEVE"],
+                start_row=2,
+            )
+            self._add_dropdown(
+                sheet,
+                columns,
+                "TargetType",
+                ["instance", "ip", "lambda", "alb"],
+                start_row=2,
+            )
+            self._add_dropdown(
+                sheet,
+                columns,
+                "HealthCheckProtocol",
+                ["HTTP", "HTTPS", "TCP"],
+                start_row=2,
+            )
+            self._add_dropdown(
+                sheet, columns, "StickinessEnabled", self.BOOLEAN_OPTIONS, start_row=2
+            )
+            self._add_dropdown(
+                sheet,
+                columns,
+                "StickinessType",
+                ["lb_cookie", "app_cookie"],
+                start_row=2,
+            )
 
         elif "Azure" in sheet_name:
             self._add_dropdown(
@@ -899,6 +1347,59 @@ class ExcelGeneratorService:
             self._add_dropdown(sheet, columns, "VNetExists", ["y", "n"], start_row=2)
             self._add_dropdown(sheet, columns, "SubnetExists", ["y", "n"], start_row=2)
             self._add_dropdown(sheet, columns, "NSGExists", ["y", "n"], start_row=2)
+            # Public IP specific dropdowns
+            self._add_dropdown(
+                sheet, columns, "AllocationMethod", ["Static", "Dynamic"], start_row=2
+            )
+            self._add_dropdown(
+                sheet, columns, "SKU", ["Basic", "Standard"], start_row=2
+            )
+            self._add_dropdown(
+                sheet, columns, "IPVersion", ["IPv4", "IPv6"], start_row=2
+            )
+            self._add_dropdown(
+                sheet,
+                columns,
+                "AvailabilityZone",
+                ["1", "2", "3", "Zone-Redundant", "No-Zone"],
+                start_row=2,
+            )
+            # NAT Gateway specific dropdowns
+            self._add_dropdown(
+                sheet, columns, "PublicIPExists", ["y", "n"], start_row=2
+            )
+            # Load Balancer specific dropdowns
+            self._add_dropdown(
+                sheet,
+                columns,
+                "HealthProbeProtocol",
+                ["Tcp", "Http", "Https"],
+                start_row=2,
+            )
+            self._add_dropdown(
+                sheet, columns, "LBRuleProtocol", ["Tcp", "Udp", "All"], start_row=2
+            )
+            self._add_dropdown(
+                sheet,
+                columns,
+                "PrivateIPAddressAllocation",
+                ["Dynamic", "Static"],
+                start_row=2,
+            )
+            self._add_dropdown(
+                sheet,
+                columns,
+                "LBRuleEnableFloatingIP",
+                self.BOOLEAN_OPTIONS,
+                start_row=2,
+            )
+            self._add_dropdown(
+                sheet,
+                columns,
+                "LBRuleDisableOutboundSnat",
+                self.BOOLEAN_OPTIONS,
+                start_row=2,
+            )
             self._add_dropdown(
                 sheet, columns, "EnableDNSHostnames", self.BOOLEAN_OPTIONS, start_row=2
             )

@@ -1,9 +1,41 @@
 # IaC4 改进总结
 
 ## 完成日期
-2026-01-18
+2026-02-03
 
 ## 改进内容
+
+### 5. 架构级鲁棒性与模板准确性优化 ✅
+
+为了确保生成的 Terraform 代码 100% 可部署，进行了一次全面的架构重构和模板审计：
+
+#### 全局标识符清洗 (ID Sanitization)
+- ✅ **`safe_id` 过滤器**: 在 `TerraformCodeGenerator` 中引入。自动将 ResourceName 转为小写、替换空格和中划线为下划线、移除特殊字符，并确保 ID 以字母开头（自动补全 `res_` 前缀）。彻底解决了以数字开头的名称导致 Terraform 语法错误的问题。
+
+#### 数据处理与安全增强
+- ✅ **Excel 解析层预处理**: 所有的列表型字段（Subnets, SecurityGroups, AddressSpace 等）现在在 `ExcelParserService` 中统一转换为 Python 列表，消除了模板中脆弱的字符串切割逻辑。
+- ✅ **安全默认值注入**: 解析器现在会自动为缺失字段注入安全最佳实践（例如：S3 默认关闭公网访问、Azure Storage 默认启用 TLS 1.2 和 HTTPS）。
+- ✅ **Jinja2 增强**: 添加了 `fromjson` 过滤器，支持模板内部处理复杂的 JSON 配置。
+
+#### 模板准确性修正
+- ✅ **AWS RDS**: 修复了子网组（Subnet Group）引用的逻辑 Bug，现在正确支持引用现有资源。
+- ✅ **Azure VM**: 完善了 Windows/Linux 渲染分支。针对 Windows VM 自动移除 SSH 密钥块并切换为密码认证，防止部署失败。
+- ✅ **跨资源引用**: 统一了 Azure 资源组（Resource Group）的引用逻辑，通过 `azure_rg_ref` 过滤器确保 `ResourceGroupExists` 字段在所有资源中生效。
+
+### 6. 新增资源类型支持 ✅
+
+目前 IaC4 已支持 **18 种** 核心云资源：
+
+| 云平台 | 资源类别 | 已支持资源类型 |
+| :--- | :--- | :--- |
+| **AWS** | 核心计算/存储 | EC2, VPC, Subnet, SecurityGroup, S3, RDS |
+| | 网络增强 | **InternetGateway, NATGateway, ElasticIP, LoadBalancer(ALB/NLB), TargetGroup** |
+| **Azure** | 核心计算/存储 | VM, VNet, Subnet, NSG, StorageAccount, SQLDatabase |
+| | 网络增强 | **PublicIP, NATGateway, LoadBalancer** |
+
+---
+
+## 下一步建议
 
 ### 1. 增强日志系统 ✅
 

@@ -1,20 +1,25 @@
 {# Azure Subnet Terraform Template #}
+{% set safe_res_id = resource_name | safe_id %}
 {# Note: Subnet requires both ResourceGroup and VNet. It can be created in existing RG and/or existing VNet. #}
-{% set resource_group_ref = "azurerm_resource_group." + properties.ResourceGroup | replace('-', '_') + ".name" if not resource.skip_resource_group_creation else "\"" + properties.ResourceGroup + "\"" %}
+{% set resource_group_ref = properties | azure_rg_ref(resource) %}
 {% set vnet_exists = properties.VNetExists | default('n') | lower %}
 {% set vnet_ref = properties.VNet %}
 {% if vnet_exists == 'y' %}
   {% set vnet_name_ref = "\"" + vnet_ref + "\"" %}
 {% else %}
-  {% set vnet_name_ref = "azurerm_virtual_network." + vnet_ref | replace('-', '_') + ".name" %}
+  {% set vnet_name_ref = "azurerm_virtual_network." + vnet_ref | safe_id + ".name" %}
 {% endif %}
-resource "azurerm_subnet" "{{ resource_name | replace('-', '_') }}" {
+resource "azurerm_subnet" "{{ safe_res_id }}" {
   name                 = "{{ resource_name }}"
   resource_group_name  = {{ resource_group_ref }}
   virtual_network_name = {{ vnet_name_ref }}
   address_prefixes     = ["{{ properties.AddressPrefix }}"]
 
   {% if properties.ServiceEndpoints %}
-  service_endpoints = {% if properties.ServiceEndpoints is string %}{{ properties.ServiceEndpoints.split(',') | map('trim') | list | tojson }}{% else %}{{ properties.ServiceEndpoints | tojson }}{% endif %}
+  service_endpoints = {{ properties.ServiceEndpoints | tojson }}
+  {% endif %}
+
+  {% if vnet_exists == 'n' %}
+  depends_on = [azurerm_virtual_network.{{ vnet_ref | safe_id }}]
   {% endif %}
 }

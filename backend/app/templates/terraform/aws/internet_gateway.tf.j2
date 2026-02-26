@@ -1,0 +1,26 @@
+{# AWS Internet Gateway Terraform Template #}
+{% set safe_res_id = resource_name | safe_id %}
+{% set vpc_ref = "aws_vpc." + properties.VPC | safe_id + ".id" if properties.VPCExists | default('n') | lower not in ['y', 'yes'] else "data.aws_vpc." + properties.VPC | safe_id + ".id" %}
+
+{% if properties.VPCExists | default('n') | lower in ['y', 'yes'] %}
+# Data source for existing VPC
+data "aws_vpc" "{{ properties.VPC | safe_id }}" {
+  filter {
+    name   = "tag:Name"
+    values = ["{{ properties.VPC }}"]
+  }
+}
+{% endif %}
+
+resource "aws_internet_gateway" "{{ safe_res_id }}" {
+  vpc_id = {{ vpc_ref }}
+
+  tags = merge(
+    {
+      Name        = "{{ resource_name }}"
+      Environment = "{{ properties.Environment | default('') }}"
+      Project     = "{{ properties.Project | default('') }}"
+    },
+    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
+  )
+}

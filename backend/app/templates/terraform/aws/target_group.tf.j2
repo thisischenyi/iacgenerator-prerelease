@@ -1,0 +1,107 @@
+{# AWS Target Group Terraform Template #}
+{% set safe_res_id = resource_name | safe_id %}
+{% set vpc_ref = "aws_vpc." + properties.VPC | safe_id + ".id" if properties.VPCExists | default('n') | lower not in ['y', 'yes'] else "\"" + properties.VPC + "\"" %}
+{% set target_type = properties.TargetType | default('instance') %}
+
+{# Parse targets list - can be JSON array or single value #}
+{% set targets_list = properties.Targets if properties.Targets is iterable and properties.Targets is not string else (properties.Targets | fromjson if properties.Targets is string and properties.Targets.startswith('[') else []) %}
+
+{# Data source for existing VPC if needed #}
+{% if properties.VPC and properties.VPCExists | default('n') | lower in ['y', 'yes'] %}
+data "aws_vpc" "{{ properties.VPC | safe_id }}" {
+  filter {
+    name   = "tag:Name"
+    values = ["{{ properties.VPC }}"]
+  }
+}
+{% endif %}
+
+resource "aws_lb_target_group" "{{ safe_res_id }}" {
+  name     = "{{ resource_name }}"
+  port     = {{ properties.Port | default(80) }}
+  protocol = "{{ properties.Protocol | default('HTTP') }}"
+  target_type = "{{ target_type }}"
+
+  {% if target_type in ['instance', 'ip', 'alb'] %}
+  vpc_id = {{ vpc_ref }}
+  {% endif %}
+
+  {% if properties.HealthCheckProtocol %}
+  health_check {
+    enabled             = true
+    protocol            = "{{ properties.HealthCheckProtocol }}"
+    
+    {% if properties.HealthCheckPort %}
+    port                = "{{ properties.HealthCheckPort }}"
+    {% endif %}
+    
+    {% if properties.HealthCheckPath %}
+    path                = "{{ properties.HealthCheckPath }}"
+    {% endif %}
+    
+    {% if properties.HealthCheckInterval %}
+    interval            = {{ properties.HealthCheckInterval }}
+    {% endif %}
+    
+    {% if properties.HealthyThreshold %}
+    healthy_threshold   = {{ properties.HealthyThreshold }}
+    {% endif %}
+    
+    {% if properties.UnhealthyThreshold %}
+    unhealthy_threshold = {{ properties.UnhealthyThreshold }}
+    {% endif %}
+    
+    {% if properties.HealthCheckTimeout %}
+    timeout             = {{ properties.HealthCheckTimeout }}
+    {% endif %}
+    
+    {% if properties.SuccessCode %}
+    matcher             = "{{ properties.SuccessCode }}"
+    {% endif %}
+  }
+  {% endif %}
+
+  {% if properties.DeregistrationDelay %}
+  deregistration_delay = {{ properties.DeregistrationDelay }}
+  {% endif %}
+
+  {% if properties.SlowStart %}
+  slow_start = {{ properties.SlowStart }}
+  {% endif %}
+
+  {% if properties.StickinessEnabled is defined %}
+  stickiness {
+    enabled         = {{ properties.StickinessEnabled | lower }}
+    type            = "{{ properties.StickinessType | default('lb_cookie') }}"
+    {% if properties.StickinessCookieDuration %}
+    cookie_duration = {{ properties.StickinessCookieDuration }}
+    {% endif %}
+  }
+  {% endif %}
+
+  tags = merge(
+    {
+      Name        = "{{ resource_name }}"
+      Environment = "{{ properties.Environment | default('') }}"
+      Project     = "{{ properties.Project | default('') }}"
+    },
+    {% if properties.Tags %}{{ properties.Tags | to_hcl_map }}{% else %}{}{% endif %}
+  )
+}
+
+{# Target Group Attachments for defined targets #}
+{% for target in targets_list %}
+{# Handle both dictionary objects and potential strings #}
+{% set t_obj = target | fromjson if target is string and target.startswith('{') else target %}
+{% if t_obj is mapping %}
+{% set target_id = t_obj.Id | default(t_obj.id | default('')) %}
+{% set target_port = t_obj.Port | default(t_obj.port | default(properties.Port | default(80))) %}
+{% if target_id %}
+resource "aws_lb_target_group_attachment" "{{ safe_res_id }}_attach_{{ loop.index }}" {
+  target_group_arn = aws_lb_target_group.{{ safe_res_id }}.arn
+  target_id        = "{{ target_id }}"
+  port             = {{ target_port }}
+}
+{% endif %}
+{% endif %}
+{% endfor %}
