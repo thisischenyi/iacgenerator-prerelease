@@ -6,7 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models import DeploymentEnvironment, Deployment
+from app.core.security import get_current_user
+from app.models import (
+    DeploymentEnvironment,
+    Deployment,
+    Session as ChatSession,
+    User,
+)
 from app.schemas import (
     DeploymentEnvironmentCreate,
     DeploymentEnvironmentUpdate,
@@ -335,6 +341,7 @@ logger = logging.getLogger(__name__)
 @router.post("/plan", response_model=DeploymentPlanResponse)
 def create_and_plan(
     request: DeploymentPlanRequest,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -367,6 +374,21 @@ def create_and_plan(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Environment with id {request.environment_id} not found",
+        )
+
+    # Verify session belongs to current user
+    session = (
+        db.query(ChatSession).filter(ChatSession.session_id == request.session_id).first()
+    )
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session with id {request.session_id} not found",
+        )
+    if session.user_id != str(current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to deploy this session",
         )
 
     try:
@@ -440,6 +462,7 @@ def create_and_plan(
 @router.post("/apply", response_model=DeploymentApplyResponse)
 def apply_deployment(
     request: DeploymentApplyRequest,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -456,6 +479,27 @@ def apply_deployment(
         HTTPException: If deployment not found or apply fails
     """
     try:
+        deployment_record = (
+            db.query(Deployment)
+            .filter(Deployment.deployment_id == request.deployment_id)
+            .first()
+        )
+        if not deployment_record:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Deployment {request.deployment_id} not found",
+            )
+        session = (
+            db.query(ChatSession)
+            .filter(ChatSession.session_id == deployment_record.session_id)
+            .first()
+        )
+        if not session or session.user_id != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to apply this deployment",
+            )
+
         print(
             f"[API: Deploy] Apply deployment request received: deployment_id={request.deployment_id}"
         )
@@ -488,6 +532,7 @@ def apply_deployment(
 @router.get("/{deployment_id}", response_model=DeploymentResponse)
 def get_deployment(
     deployment_id: str,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -511,6 +556,14 @@ def get_deployment(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Deployment {deployment_id} not found",
+        )
+    session = (
+        db.query(ChatSession).filter(ChatSession.session_id == deployment.session_id).first()
+    )
+    if not session or session.user_id != str(current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this deployment",
         )
 
     plan_summary = None
@@ -543,6 +596,7 @@ def list_deployments(
     session_id: str = None,
     skip: int = 0,
     limit: int = 50,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -557,14 +611,24 @@ def list_deployments(
     Returns:
         List of deployments
     """
-    query = db.query(Deployment)
+    user_session_ids = [
+        row[0]
+        for row in db.query(ChatSession.session_id)
+        .filter(ChatSession.user_id == str(current_user.id))
+        .all()
+    ]
+
+    query = db.query(Deployment).filter(Deployment.session_id.in_(user_session_ids))
 
     if session_id:
+        if session_id not in user_session_ids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to access this session deployments",
+            )
         query = query.filter(Deployment.session_id == session_id)
 
-    deployments = (
-        query.order_by(Deployment.created_at.desc()).offset(skip).limit(limit).all()
-    )
+    deployments = query.order_by(Deployment.created_at.desc()).offset(skip).limit(limit).all()
 
     result = []
     for deployment in deployments:
@@ -600,6 +664,7 @@ def list_deployments(
 @router.post("/{deployment_id}/destroy", response_model=DeploymentResponse)
 def destroy_deployment(
     deployment_id: str,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -616,6 +681,25 @@ def destroy_deployment(
         HTTPException: If deployment not found or cannot be destroyed
     """
     try:
+        deployment_record = (
+            db.query(Deployment).filter(Deployment.deployment_id == deployment_id).first()
+        )
+        if not deployment_record:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Deployment {deployment_id} not found",
+            )
+        session = (
+            db.query(ChatSession)
+            .filter(ChatSession.session_id == deployment_record.session_id)
+            .first()
+        )
+        if not session or session.user_id != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to destroy this deployment",
+            )
+
         executor = TerraformExecutor(db)
         deployment = executor.destroy_resources(deployment_id)
 

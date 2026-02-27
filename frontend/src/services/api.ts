@@ -1,10 +1,26 @@
 import axios from 'axios';
 
+let authToken: string | null = null;
+
+export const setApiToken = (token: string | null) => {
+  authToken = token;
+};
+
+export const getApiToken = (): string | null => authToken;
+
 const api = axios.create({
   baseURL: '/api',
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+api.interceptors.request.use((config) => {
+  if (authToken) {
+    config.headers = config.headers ?? {};
+    config.headers.Authorization = `Bearer ${authToken}`;
+  }
+  return config;
 });
 
 export interface ChatRequest {
@@ -31,6 +47,21 @@ export interface ChatResponse {
   };
 }
 
+export interface ApiSession {
+  session_id: string;
+  created_at: string;
+  conversation_history?: Array<{
+    role?: string;
+    content?: string;
+    code_blocks?: Array<{
+      filename: string;
+      content: string;
+      language: string;
+    }>;
+  }>;
+  generated_code?: Record<string, string>;
+}
+
 export interface CodeGenerationResult {
   success: boolean;
   files: Array<{
@@ -41,6 +72,37 @@ export interface CodeGenerationResult {
   summary: string;
   download_url?: string;
 }
+
+export interface AuthUser {
+  id: number;
+  email: string;
+  full_name?: string | null;
+  provider: string;
+  avatar_url?: string | null;
+}
+
+export interface AuthTokenResponse {
+  access_token: string;
+  token_type: 'bearer';
+  user: AuthUser;
+}
+
+export const authService = {
+  register: async (data: { email: string; password: string; full_name?: string }) => {
+    const response = await api.post<AuthTokenResponse>('/auth/register', data);
+    return response.data;
+  },
+  login: async (data: { email: string; password: string }) => {
+    const response = await api.post<AuthTokenResponse>('/auth/login', data);
+    return response.data;
+  },
+  me: async () => {
+    const response = await api.get<AuthUser>('/auth/me');
+    return response.data;
+  },
+  getGoogleLoginUrl: () => '/api/auth/google/login',
+  getMicrosoftLoginUrl: () => '/api/auth/microsoft/login',
+};
 
 export const chatService = {
   sendMessage: async (data: ChatRequest) => {
@@ -59,6 +121,15 @@ export const chatService = {
     // Explicitly send user_id as null to match schema
     const response = await api.post<{ session_id: string }>('/sessions', { user_id: null });
     return response.data;
+  },
+
+  listSessions: async () => {
+    const response = await api.get<ApiSession[]>('/sessions');
+    return response.data;
+  },
+
+  deleteSession: async (sessionId: string) => {
+    await api.delete(`/sessions/${sessionId}`);
   }
 };
 

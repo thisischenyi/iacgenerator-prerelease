@@ -85,6 +85,24 @@ class Session(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 
+class User(Base):
+    """Application user model."""
+
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    full_name = Column(String(255))
+    password_hash = Column(String(255))
+    provider = Column(String(50), nullable=False, default="local")
+    provider_user_id = Column(String(255), index=True)
+    avatar_url = Column(String(1000))
+    is_active = Column(Boolean, default=True)
+    last_login_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
 class AuditLog(Base):
     """Audit log model."""
 

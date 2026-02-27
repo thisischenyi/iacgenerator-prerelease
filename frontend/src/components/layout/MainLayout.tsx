@@ -12,6 +12,7 @@ import {
   ListItemIcon, 
   ListItemText, 
   Toolbar, 
+  Button,
   Typography, 
   useTheme, 
   useMediaQuery 
@@ -24,6 +25,7 @@ import {
   Settings as SettingsIcon 
 } from '@mui/icons-material';
 import accentureLogo from '../../assets/accenture-logo.svg';
+import { useAuthStore } from '../../store/authStore';
 
 const drawerWidth = 240;
 
@@ -40,6 +42,8 @@ export default function MainLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -117,6 +121,20 @@ export default function MainLayout() {
             {menuItems.find(item => item.path === location.pathname)?.text || 'IaC Generator'}
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mr: 2 }}>
+              {user?.full_name || user?.email}
+            </Typography>
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => {
+                logout();
+                navigate('/login');
+              }}
+              sx={{ mr: 2 }}
+            >
+              Logout
+            </Button>
             <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
               Powered by
             </Typography>

@@ -7,7 +7,8 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session as DBSession
 
 from app.core.database import get_db
-from app.models import Session
+from app.core.security import get_current_user
+from app.models import Session, User
 from app.schemas import CodeGenerationResult, GeneratedCode, ResourceCollection
 from app.services.terraform_generator import TerraformCodeGenerator
 from app.services.file_utils import FileUtilsService
@@ -43,6 +44,7 @@ async def download_file(filename: str):
 async def generate_code(
     resources: ResourceCollection,
     session_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
     """
@@ -67,6 +69,11 @@ async def generate_code(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Session with id {session_id} not found",
+            )
+        if session.user_id != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to use this session",
             )
 
     if not resources.resources:

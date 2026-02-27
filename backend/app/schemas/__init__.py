@@ -225,6 +225,43 @@ class SessionResponse(BaseModel):
         from_attributes = True
 
 
+# Auth Schemas
+class UserRegisterRequest(BaseModel):
+    """Schema for user registration."""
+
+    email: str
+    password: str = Field(..., min_length=8, max_length=128)
+    full_name: Optional[str] = Field(None, max_length=255)
+
+
+class UserLoginRequest(BaseModel):
+    """Schema for user login."""
+
+    email: str
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+class UserProfileResponse(BaseModel):
+    """Schema for authenticated user profile."""
+
+    id: int
+    email: str
+    full_name: Optional[str] = None
+    provider: str
+    avatar_url: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AuthTokenResponse(BaseModel):
+    """Schema for auth token response."""
+
+    access_token: str
+    token_type: str = "bearer"
+    user: UserProfileResponse
+
+
 # General Responses
 class ErrorResponse(BaseModel):
     """Schema for error response."""

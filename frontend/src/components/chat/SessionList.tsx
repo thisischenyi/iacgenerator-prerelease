@@ -38,10 +38,10 @@ export default function SessionList() {
     await createNewSession();
   };
 
-  const handleDeleteSession = (sessionId: string, e: React.MouseEvent) => {
+  const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm('确定删除此会话吗？')) {
-      deleteSession(sessionId);
+    if (window.confirm('Are you sure you want to delete this session?')) {
+      await deleteSession(sessionId);
     }
   };
 
@@ -122,7 +122,7 @@ export default function SessionList() {
                     <IconButton
                       edge="end"
                       size="small"
-                      onClick={(e) => handleDeleteSession(session.id, e)}
+                      onClick={(e) => { void handleDeleteSession(session.id, e); }}
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>

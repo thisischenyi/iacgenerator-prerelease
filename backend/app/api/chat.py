@@ -6,7 +6,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session as DBSession
 
 from app.core.database import get_db
-from app.models import Session
+from app.core.security import get_current_user
+from app.models import Session, User
 from app.schemas import ChatRequest, ChatResponse
 from app.agents.workflow import IaCAgentWorkflow
 
@@ -16,6 +17,7 @@ router = APIRouter()
 @router.post("", response_model=ChatResponse)
 async def chat(
     chat_request: ChatRequest,
+    current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
     """
@@ -46,6 +48,11 @@ async def chat(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Session with id {chat_request.session_id} not found",
+            )
+        if session.user_id != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to use this session",
             )
         print(f"[API:Chat] Session found: {session.session_id}")
     else:
@@ -151,6 +158,7 @@ async def chat(
 @router.post("/stream")
 async def chat_stream(
     chat_request: ChatRequest,
+    current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
     """
@@ -174,6 +182,11 @@ async def chat_stream(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Session with id {chat_request.session_id} not found",
+        )
+    if session.user_id != str(current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to use this session",
         )
 
     async def generate_events():
