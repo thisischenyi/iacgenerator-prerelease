@@ -1,7 +1,8 @@
 """Agent nodes for LangGraph workflow."""
 
 import json
-from typing import Dict, Any
+import re
+from typing import Dict, Any, List
 from sqlalchemy.orm import Session
 
 from app.agents.state import AgentState
@@ -15,11 +16,135 @@ from app.core.database import SessionLocal
 class AgentNodes:
     """Collection of agent nodes for the workflow."""
 
+    # AzureRM v4.x-incompatible resource types that should be blocked at review time
+    # and sent back for regeneration, instead of silently patched during deployment.
+    UNSUPPORTED_AZURERM_RESOURCE_TYPES = {
+        "azurerm_private_endpoint_private_dns_zone_group": (
+            "Use `private_dns_zone_group { ... }` nested inside "
+            "`azurerm_private_endpoint` instead of a standalone resource."
+        ),
+        "azurerm_mssql_database_transparent_data_encryption": (
+            "Do not create this resource in AzureRM v4.x; TDE is enabled by default."
+        ),
+        "azurerm_mssql_database_vulnerability_assessment": (
+            "Do not create this resource in AzureRM v4.x; use server-level security "
+            "alert/vulnerability settings."
+        ),
+    }
+
     def __init__(self, db: Session):
         """Initialize nodes with database session."""
         self.db = db
         self.llm_client = LLMClient(db)
         self.excel_parser = ExcelParserService()
+
+    @classmethod
+    def _run_static_terraform_review(
+        cls, generated_files: Dict[str, str]
+    ) -> List[Dict[str, str]]:
+        """
+        Run deterministic static checks before LLM review.
+
+        These checks catch known provider-compatibility blockers early and force
+        regeneration feedback, instead of letting invalid code reach terraform plan.
+        """
+        issues: List[Dict[str, str]] = []
+        resource_pattern = r'resource\s+"([^"]+)"\s+"([^"]+)"\s*\{'
+
+        def _find_matching_brace(content: str, start: int) -> int:
+            depth = 0
+            i = start
+            while i < len(content):
+                if content[i] == "{":
+                    depth += 1
+                elif content[i] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        return i
+                i += 1
+            return -1
+
+        for file_name, content in generated_files.items():
+            if not isinstance(content, str):
+                continue
+
+            for match in re.finditer(resource_pattern, content):
+                resource_type = match.group(1)
+                resource_name = match.group(2)
+                block_start = match.start()
+                brace_start = match.end() - 1
+                brace_end = _find_matching_brace(content, brace_start)
+                resource_block = (
+                    content[block_start : brace_end + 1] if brace_end != -1 else ""
+                )
+
+                suggestion = cls.UNSUPPORTED_AZURERM_RESOURCE_TYPES.get(resource_type)
+                if not suggestion:
+                    pass
+                else:
+                    line_no = content.count("\n", 0, match.start()) + 1
+                    issues.append(
+                        {
+                            "severity": "critical",
+                            "file": file_name,
+                            "description": (
+                                f"Unsupported AzureRM resource type `{resource_type}` "
+                                f"(resource `{resource_name}`) at line {line_no}."
+                            ),
+                            "suggestion": suggestion,
+                        }
+                    )
+
+                # Subnet SQL delegation sanity checks:
+                # Azure SQL Database should use service_endpoints = ["Microsoft.Sql"].
+                # Subnet delegation for SQL is only valid for Managed Instance with
+                # Microsoft.Sql/managedInstances* names.
+                if resource_type == "azurerm_subnet" and resource_block:
+                    sd_pattern = r"service_delegation\s*\{"
+                    for sd_match in re.finditer(sd_pattern, resource_block, re.IGNORECASE):
+                        sd_brace_start = sd_match.end() - 1
+                        sd_brace_end = _find_matching_brace(resource_block, sd_brace_start)
+                        if sd_brace_end == -1:
+                            continue
+                        sd_block = resource_block[sd_match.start() : sd_brace_end + 1]
+                        name_match = re.search(
+                            r'name\s*=\s*"([^"]+)"', sd_block, re.IGNORECASE
+                        )
+                        if not name_match:
+                            continue
+
+                        delegation_name = name_match.group(1).strip()
+                        delegation_name_lower = delegation_name.lower()
+                        is_invalid_sql_delegation = delegation_name_lower == "microsoft.sql" or (
+                            delegation_name_lower.startswith("microsoft.sql/")
+                            and not delegation_name_lower.startswith(
+                                "microsoft.sql/managedinstances"
+                            )
+                        )
+                        if not is_invalid_sql_delegation:
+                            continue
+
+                        sd_global_start = block_start + sd_match.start()
+                        line_no = content.count("\n", 0, sd_global_start) + 1
+                        issues.append(
+                            {
+                                "severity": "critical",
+                                "file": file_name,
+                                "description": (
+                                    "Invalid SQL subnet delegation "
+                                    f"`{delegation_name}` in azurerm_subnet."
+                                    f"`{resource_name}` at line {line_no}."
+                                ),
+                                "suggestion": (
+                                    "For Azure SQL Database, remove subnet delegation and "
+                                    'use `service_endpoints = ["Microsoft.Sql"]`. '
+                                    "Only SQL Managed Instance should use delegation "
+                                    "with `Microsoft.Sql/managedInstances*`."
+                                ),
+                            }
+                        )
+
+        return issues
 
     def input_parser(self, state: AgentState) -> AgentState:
         """
@@ -1089,14 +1214,51 @@ Tags: Project=Demo, Environment=Production
             print("=" * 80 + "\n")
             return state
 
-        # Max attempts reached - accept code as-is
+        # Max attempts reached - fail closed instead of accepting potentially broken code.
         if review_attempt > 3:
-            print("[AGENT: CodeReviewer] Max review attempts reached, accepting code")
-            state["review_passed"] = True
-            state["review_feedback"] = "Code accepted after maximum review attempts."
-            state["workflow_state"] = "completed"
+            print("[AGENT: CodeReviewer] Max review attempts reached, failing review")
+            state["review_passed"] = False
+            state["review_feedback"] = (
+                "Maximum review attempts reached with unresolved issues."
+            )
+            state["workflow_state"] = "review_failed"
             print("[AGENT: CodeReviewer] FINISHED")
             print("=" * 80 + "\n")
+            return state
+
+        # Run deterministic static review first for provider compatibility blockers.
+        static_issues = self._run_static_terraform_review(generated_files)
+        if static_issues:
+            print(
+                f"[AGENT: CodeReviewer] Static review found {len(static_issues)} critical issue(s)"
+            )
+            for idx, issue in enumerate(static_issues, 1):
+                print(
+                    f"  [{idx}] [{issue.get('severity')}] [{issue.get('file')}] {issue.get('description')}"
+                )
+                print(f"      Suggestion: {issue.get('suggestion')}")
+
+            feedback_for_regeneration = (
+                "Static code review failed due to provider compatibility issues:\n\n"
+                "CRITICAL ISSUES (must fix):\n"
+            )
+            for issue in static_issues:
+                feedback_for_regeneration += (
+                    f"- [{issue.get('file', 'general')}] {issue.get('description')}\n"
+                    f"  Fix: {issue.get('suggestion', 'N/A')}\n"
+                )
+
+            state["review_passed"] = False
+            state["review_issues"] = static_issues
+            state["review_feedback"] = feedback_for_regeneration
+            state["workflow_state"] = "review_failed"
+
+            print(
+                "[AGENT: CodeReviewer] Static review failed, sending deterministic feedback for regeneration"
+            )
+            print("[AGENT: CodeReviewer] FINISHED")
+            print("=" * 80 + "\n")
+            ProgressTracker.agent_completed(session_id, AgentType.CODE_REVIEWER)
             return state
 
         # Prepare code for review
@@ -1172,6 +1334,10 @@ Storage Account (azurerm_storage_account):
 SQL Database (azurerm_mssql_database):
 - TDE (Transparent Data Encryption) is enabled by default, DO NOT create separate `azurerm_mssql_database_transparent_data_encryption` resource (does not exist in v4.x)
 - Vulnerability Assessment is configured via `azurerm_mssql_server` or `azurerm_mssql_server_security_alert_policy`, DO NOT create `azurerm_mssql_database_vulnerability_assessment` resource (does not exist in v4.x)
+- DO NOT use standalone `azurerm_private_endpoint_private_dns_zone_group` in v4.x; use `private_dns_zone_group` nested block under `azurerm_private_endpoint`
+- For Azure SQL Database network isolation, DO NOT use subnet `delegation { service_delegation { ... } }`
+- For Azure SQL Database, use subnet `service_endpoints = ["Microsoft.Sql"]`
+- SQL subnet delegation is only for Managed Instance and must be `Microsoft.Sql/managedInstances*`
 
 If you see these deprecated parameters or invalid resources in the code, report them as CRITICAL errors.
 
@@ -1353,16 +1519,26 @@ Please verify if the issues from previous review have been addressed.
 
             traceback.print_exc()
 
-            # On parse error, assume code is acceptable (don't block user)
-            state["review_passed"] = True
+            # Fail closed on parse error so invalid code is not silently accepted.
+            state["review_passed"] = False
+            state["review_issues"] = [
+                {
+                    "severity": "critical",
+                    "file": "review",
+                    "description": (
+                        "Code review response could not be parsed as valid JSON."
+                    ),
+                    "suggestion": (
+                        "Regenerate code and ensure reviewer output includes valid "
+                        "JSON with critical issues."
+                    ),
+                }
+            ]
             state["review_feedback"] = (
-                "Review completed (response parsing issue, code accepted)"
+                "Review failed because reviewer output could not be parsed. "
+                "Regenerate code and re-run review with strict JSON output."
             )
-            state["workflow_state"] = "completed"
-            state["ai_response"] = "Code generation completed. Ready for download."
-            state["messages"].append(
-                {"role": "assistant", "content": state["ai_response"]}
-            )
+            state["workflow_state"] = "review_failed"
 
         print(f"[AGENT: CodeReviewer] FINISHED - Status: {state['workflow_state']}")
         print("=" * 80 + "\n")
@@ -1496,6 +1672,10 @@ CRITICAL AzureRM Provider v4.x Parameter Changes (MUST USE NEW NAMES):
   * DO NOT create `azurerm_mssql_database_transparent_data_encryption` resource (does not exist in v4.x, TDE is enabled by default)
   * DO NOT create `azurerm_mssql_database_vulnerability_assessment` resource (does not exist in v4.x)
   * Vulnerability assessment is configured via `azurerm_mssql_server_security_alert_policy` or server-level settings
+  * DO NOT create standalone `azurerm_private_endpoint_private_dns_zone_group`; use `private_dns_zone_group { ... }` nested in `azurerm_private_endpoint`
+  * For Azure SQL Database, DO NOT set subnet delegation `service_delegation.name` to `Microsoft.Sql` or `Microsoft.Sql/servers`
+  * For Azure SQL Database, use subnet `service_endpoints = ["Microsoft.Sql"]`
+  * Only SQL Managed Instance uses subnet delegation, and must use `Microsoft.Sql/managedInstances*`
 - Network Interface (azurerm_network_interface):
   * NEVER use `network_security_group_id` parameter inside azurerm_network_interface resource (REMOVED in v4.x)
   * To associate NSG with NIC, MUST create separate `azurerm_network_interface_security_group_association` resource

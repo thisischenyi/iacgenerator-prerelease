@@ -385,16 +385,38 @@ export const useChatStore = create<ChatState>()(
                     console.log('[SSE] Progress event:', agentType, status);
                     
                     set((state) => {
-                      const newCompletedAgents = status === 'completed'
-                        ? [...state.agentProgress.completedAgents, agentType]
-                        : state.agentProgress.completedAgents;
+                      let newCompletedAgents = state.agentProgress.completedAgents;
+                      let newCurrentAgent = state.agentProgress.currentAgent;
+                      let newFailedAgent = state.agentProgress.failedAgent;
+
+                      if (status === 'started') {
+                        // If an agent restarts (e.g., regenerate loop), move it back to active.
+                        newCompletedAgents = newCompletedAgents.filter(
+                          (agent) => agent !== agentType
+                        );
+                        newCurrentAgent = agentType;
+                        newFailedAgent = null;
+                      } else if (status === 'completed') {
+                        // De-duplicate completed agents.
+                        if (!newCompletedAgents.includes(agentType)) {
+                          newCompletedAgents = [...newCompletedAgents, agentType];
+                        }
+                        // Only clear current agent if this completion belongs to the active one.
+                        if (newCurrentAgent === agentType) {
+                          newCurrentAgent = null;
+                        }
+                      } else if (status === 'failed') {
+                        newFailedAgent = agentType;
+                        if (newCurrentAgent === agentType) {
+                          newCurrentAgent = null;
+                        }
+                      }
                       
                       return {
                         agentProgress: {
-                          currentAgent: status === 'started' ? agentType : 
-                                       (status === 'completed' ? null : state.agentProgress.currentAgent),
+                          currentAgent: newCurrentAgent,
                           completedAgents: newCompletedAgents,
-                          failedAgent: status === 'failed' ? agentType : state.agentProgress.failedAgent,
+                          failedAgent: newFailedAgent,
                           currentMessage: event.message || event.agent_description,
                         },
                       };

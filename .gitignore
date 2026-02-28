@@ -34,3 +34,6 @@ prn
 aux
 com1
 lpt1
+
+.gemini/
+gha-creds-*.json

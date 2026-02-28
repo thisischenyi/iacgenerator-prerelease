@@ -215,7 +215,7 @@ class SessionResponse(BaseModel):
 
     session_id: str
     created_at: datetime
-    conversation_history: Optional[List[Dict[str, str]]] = None
+    conversation_history: Optional[List[Dict[str, Any]]] = None
     resource_info: Optional[List[Dict[str, Any]]] = None
     compliance_results: Optional[Dict[str, Any]] = None
     generated_code: Optional[Dict[str, str]] = None

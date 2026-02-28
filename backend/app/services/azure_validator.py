@@ -107,6 +107,40 @@ class AzureTerraformValidator:
         return cls._remove_block_from_resource(block, "data_disk")
 
     @classmethod
+    def _remove_invalid_sql_subnet_delegations(cls, subnet_block: str) -> Tuple[str, int]:
+        """
+        Remove invalid SQL subnet delegation blocks from an azurerm_subnet block.
+
+        Azure subnet delegations must not use `Microsoft.Sql/servers`.
+        Valid SQL delegation targets are managed instance variants such as
+        `Microsoft.Sql/managedInstances`.
+        """
+        fixed_block = subnet_block
+        removed_count = 0
+
+        delegation_pattern = r"\n\s*delegation\s*\{"
+        matches = list(re.finditer(delegation_pattern, fixed_block, re.IGNORECASE))
+
+        for match in reversed(matches):
+            block_start = match.start()
+            brace_start = match.end() - 1
+            brace_end = cls._find_matching_brace(fixed_block, brace_start)
+            if brace_end == -1:
+                continue
+
+            delegation_block = fixed_block[block_start : brace_end + 1]
+            has_invalid_sql_delegation = re.search(
+                r'name\s*=\s*"Microsoft\.Sql/(?!managedInstances)[^"]+"',
+                delegation_block,
+                re.IGNORECASE,
+            )
+            if has_invalid_sql_delegation:
+                fixed_block = fixed_block[:block_start] + fixed_block[brace_end + 1 :]
+                removed_count += 1
+
+        return fixed_block, removed_count
+
+    @classmethod
     def validate_and_fix_main_tf(cls, main_tf_content: str) -> Tuple[str, List[str]]:
         """
         Validate and auto-fix main.tf for Azure resources.
@@ -383,6 +417,32 @@ class AzureTerraformValidator:
                 print(
                     "[AzureValidator] Removed SQL vulnerability assessment "
                     f"{va_name} due to empty storage fields"
+                )
+
+        # Fix 9: Remove unsupported SQL subnet delegations like Microsoft.Sql/servers.
+        subnet_pattern = r'resource\s+"azurerm_subnet"\s+"(\w+)"\s*\{'
+        subnet_matches = list(re.finditer(subnet_pattern, result))
+        for subnet_match in reversed(subnet_matches):
+            subnet_name = subnet_match.group(1)
+            block_start = subnet_match.start()
+            brace_start = subnet_match.end() - 1
+            brace_end = cls._find_matching_brace(result, brace_start)
+            if brace_end == -1:
+                continue
+
+            subnet_block = result[block_start : brace_end + 1]
+            fixed_subnet_block, removed_count = cls._remove_invalid_sql_subnet_delegations(
+                subnet_block
+            )
+            if removed_count > 0:
+                result = result[:block_start] + fixed_subnet_block + result[brace_end + 1 :]
+                issues_fixed.append(
+                    "Removed unsupported SQL subnet delegation(s) from "
+                    f"azurerm_subnet.{subnet_name} ({removed_count} block(s))"
+                )
+                print(
+                    "[AzureValidator] Removed unsupported SQL subnet delegation(s) from "
+                    f"azurerm_subnet.{subnet_name}"
                 )
 
         return result, issues_fixed
