@@ -29,11 +29,21 @@ import {
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
+  Edit as EditIcon,
   Add as AddIcon,
   Cloud as CloudIcon,
 } from '@mui/icons-material';
 import { useDeploymentStore } from '../../store/deploymentStore';
-import type { CloudPlatform, DeploymentEnvironmentCreate } from '../../services/api';
+import type {
+  CloudPlatform,
+  DeploymentEnvironment,
+  DeploymentEnvironmentCreate,
+} from '../../services/api';
+import {
+  buildEnvironmentFormStateForEdit,
+  buildEnvironmentUpdatePayload,
+  initialEnvironmentFormState,
+} from './environmentDialogHelpers';
 
 interface EnvironmentDialogProps {
   open: boolean;
@@ -56,20 +66,6 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-const initialFormState: DeploymentEnvironmentCreate = {
-  name: '',
-  description: '',
-  cloud_platform: 'aws',
-  aws_access_key_id: '',
-  aws_secret_access_key: '',
-  aws_region: 'us-east-1',
-  azure_subscription_id: '',
-  azure_tenant_id: '',
-  azure_client_id: '',
-  azure_client_secret: '',
-  is_default: false,
-};
-
 export default function EnvironmentDialog({
   open,
   onClose,
@@ -81,42 +77,73 @@ export default function EnvironmentDialog({
     environmentsError,
     fetchEnvironments,
     createEnvironment,
+    updateEnvironment,
     deleteEnvironment,
   } = useDeploymentStore();
 
   const [tabValue, setTabValue] = useState(0);
-  const [formData, setFormData] = useState<DeploymentEnvironmentCreate>(initialFormState);
+  const [formData, setFormData] = useState<DeploymentEnvironmentCreate>(
+    initialEnvironmentFormState
+  );
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [editingEnvironment, setEditingEnvironment] =
+    useState<DeploymentEnvironment | null>(null);
+
+  const isEditing = editingEnvironment !== null;
 
   useEffect(() => {
     if (open) {
-      fetchEnvironments();
+      void fetchEnvironments();
+    } else {
+      setTabValue(0);
+      setFormData(initialEnvironmentFormState);
+      setFormError(null);
+      setIsSubmitting(false);
+      setDeleteConfirmId(null);
+      setEditingEnvironment(null);
     }
   }, [open, fetchEnvironments]);
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
     setFormError(null);
+    if (newValue === 1 && !editingEnvironment) {
+      setFormData(initialEnvironmentFormState);
+    }
   };
 
   const handleFormChange = (field: keyof DeploymentEnvironmentCreate, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleCreateEnvironment = async () => {
+  const handleStartCreate = () => {
+    setEditingEnvironment(null);
+    setFormData(initialEnvironmentFormState);
+    setFormError(null);
+    setTabValue(1);
+  };
+
+  const handleStartEdit = (environment: DeploymentEnvironment) => {
+    setEditingEnvironment(environment);
+    setFormData(buildEnvironmentFormStateForEdit(environment));
+    setFormError(null);
+    setTabValue(1);
+  };
+
+  const handleSaveEnvironment = async () => {
     if (!formData.name.trim()) {
       setFormError('环境名称不能为空');
       return;
     }
 
-    if (formData.cloud_platform === 'aws') {
+    if (!isEditing && formData.cloud_platform === 'aws') {
       if (!formData.aws_access_key_id || !formData.aws_secret_access_key) {
         setFormError('请填写 AWS Access Key 和 Secret Key');
         return;
       }
-    } else if (formData.cloud_platform === 'azure') {
+    } else if (!isEditing && formData.cloud_platform === 'azure') {
       if (
         !formData.azure_subscription_id ||
         !formData.azure_tenant_id ||
@@ -132,12 +159,27 @@ export default function EnvironmentDialog({
     setFormError(null);
 
     try {
-      await createEnvironment(formData);
-      setFormData(initialFormState);
+      if (editingEnvironment) {
+        await updateEnvironment(
+          editingEnvironment.id,
+          buildEnvironmentUpdatePayload(formData, editingEnvironment)
+        );
+      } else {
+        await createEnvironment({
+          ...formData,
+          name: formData.name.trim(),
+          description: formData.description?.trim() ?? '',
+        });
+      }
+      setEditingEnvironment(null);
+      setFormData(initialEnvironmentFormState);
       setTabValue(0); // Switch back to list
     } catch (error: unknown) {
       const errorObj = error as { response?: { data?: { detail?: string } } };
-      setFormError(errorObj.response?.data?.detail || '创建环境失败');
+      setFormError(
+        errorObj.response?.data?.detail ||
+          (editingEnvironment ? '更新环境失败' : '创建环境失败')
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -176,7 +218,11 @@ export default function EnvironmentDialog({
       <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
         <Tabs value={tabValue} onChange={handleTabChange}>
           <Tab label="选择环境" />
-          <Tab label="新建环境" icon={<AddIcon />} iconPosition="start" />
+          <Tab
+            label={isEditing ? '编辑环境' : '新建环境'}
+            icon={<AddIcon />}
+            iconPosition="start"
+          />
         </Tabs>
       </Box>
 
@@ -200,7 +246,7 @@ export default function EnvironmentDialog({
               <Button
                 variant="outlined"
                 startIcon={<AddIcon />}
-                onClick={() => setTabValue(1)}
+                onClick={handleStartCreate}
               >
                 创建新环境
               </Button>
@@ -259,6 +305,18 @@ export default function EnvironmentDialog({
                     <IconButton
                       edge="end"
                       size="small"
+                      aria-label={`编辑环境 ${env.name}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleStartEdit(env);
+                      }}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      edge="end"
+                      size="small"
+                      aria-label={`删除环境 ${env.name}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteEnvironment(env.id);
@@ -277,6 +335,12 @@ export default function EnvironmentDialog({
           {formError && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {formError}
+            </Alert>
+          )}
+
+          {isEditing && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              凭证字段留空将保留现有密钥；如需替换，请输入新的凭证值。
             </Alert>
           )}
 
@@ -303,6 +367,7 @@ export default function EnvironmentDialog({
               <Select
                 value={formData.cloud_platform}
                 label="云平台"
+                disabled={isEditing}
                 onChange={(e) =>
                   handleFormChange('cloud_platform', e.target.value as CloudPlatform)
                 }
@@ -323,7 +388,7 @@ export default function EnvironmentDialog({
                   label="Access Key ID"
                   value={formData.aws_access_key_id}
                   onChange={(e) => handleFormChange('aws_access_key_id', e.target.value)}
-                  required
+                  required={!isEditing}
                   fullWidth
                 />
                 <TextField
@@ -333,7 +398,7 @@ export default function EnvironmentDialog({
                   onChange={(e) =>
                     handleFormChange('aws_secret_access_key', e.target.value)
                   }
-                  required
+                  required={!isEditing}
                   fullWidth
                 />
                 <FormControl fullWidth>
@@ -364,21 +429,21 @@ export default function EnvironmentDialog({
                   onChange={(e) =>
                     handleFormChange('azure_subscription_id', e.target.value)
                   }
-                  required
+                  required={!isEditing}
                   fullWidth
                 />
                 <TextField
                   label="Tenant ID"
                   value={formData.azure_tenant_id}
                   onChange={(e) => handleFormChange('azure_tenant_id', e.target.value)}
-                  required
+                  required={!isEditing}
                   fullWidth
                 />
                 <TextField
                   label="Client ID"
                   value={formData.azure_client_id}
                   onChange={(e) => handleFormChange('azure_client_id', e.target.value)}
-                  required
+                  required={!isEditing}
                   fullWidth
                 />
                 <TextField
@@ -388,7 +453,7 @@ export default function EnvironmentDialog({
                   onChange={(e) =>
                     handleFormChange('azure_client_secret', e.target.value)
                   }
-                  required
+                  required={!isEditing}
                   fullWidth
                 />
               </>
@@ -412,10 +477,16 @@ export default function EnvironmentDialog({
         {tabValue === 1 && (
           <Button
             variant="contained"
-            onClick={handleCreateEnvironment}
+            onClick={handleSaveEnvironment}
             disabled={isSubmitting}
           >
-            {isSubmitting ? <CircularProgress size={20} /> : '创建环境'}
+            {isSubmitting ? (
+              <CircularProgress size={20} />
+            ) : isEditing ? (
+              '保存修改'
+            ) : (
+              '创建环境'
+            )}
           </Button>
         )}
       </DialogActions>
