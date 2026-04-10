@@ -332,3 +332,18 @@ npm run build
 | M-01 | Policy 全局共享 | 待实施 - 需 alembic 迁移 |
 | M-02 | 数据模型缺少外键和类型一致性 | 待实施 - 需 alembic 迁移 |
 | M-06 | 聊天历史完整持久化到本地 | 待实施 - 需 store 重构 |
+
+
+### 补充修复（commit aa82fc2）
+
+以下问题已在第二次提交中修复：
+
+| 编号 | 问题 | 状态 |
+|------|------|------|
+| H-02 | 部署环境无用户归属隔离 | 已修复 - user_id FK + API auth 过滤 |
+| H-03 | LLM 配置全局共享 | 已修复 - user_id FK + activate 按用户隔离 |
+| M-01 | Policy 全局共享 | 已修复 - user_id FK + API auth 过滤 + agent 按 session owner 过滤 |
+| M-02 | 数据模型缺少外键和类型一致性 | 已修复 - Session.user_id 改为 Integer FK, 所有关联表补 FK + relationship |
+| M-06 | 聊天历史完整持久化到本地 | 已修复 - localStorage 仅存 session 元数据，消息从服务端加载 |
+
+**全部 22 个问题已修复完成。**
