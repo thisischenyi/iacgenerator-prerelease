@@ -223,6 +223,15 @@ export interface DeploymentEnvironment {
   updated_at: string | null;
 }
 
+export interface DeploymentEnvironmentDetail extends DeploymentEnvironment {
+  aws_access_key_id?: string | null;
+  aws_secret_access_key?: string | null;
+  azure_subscription_id?: string | null;
+  azure_tenant_id?: string | null;
+  azure_client_id?: string | null;
+  azure_client_secret?: string | null;
+}
+
 export interface DeploymentEnvironmentCreate {
   name: string;
   description?: string;
@@ -284,6 +293,13 @@ export const deploymentService = {
   // Environment CRUD
   getEnvironments: async (): Promise<DeploymentEnvironment[]> => {
     const response = await api.get<DeploymentEnvironment[]>('/deployments/environments');
+    return response.data;
+  },
+
+  getEnvironment: async (id: number): Promise<DeploymentEnvironmentDetail> => {
+    const response = await api.get<DeploymentEnvironmentDetail>(
+      `/deployments/environments/${id}`
+    );
     return response.data;
   },
 

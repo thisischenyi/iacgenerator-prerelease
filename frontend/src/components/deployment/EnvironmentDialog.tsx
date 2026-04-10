@@ -36,9 +36,9 @@ import {
 import { useDeploymentStore } from '../../store/deploymentStore';
 import type {
   CloudPlatform,
-  DeploymentEnvironment,
   DeploymentEnvironmentCreate,
 } from '../../services/api';
+import { deploymentService } from '../../services/api';
 import {
   buildEnvironmentFormStateForEdit,
   buildEnvironmentUpdatePayload,
@@ -87,9 +87,12 @@ export default function EnvironmentDialog({
   );
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingEdit, setIsLoadingEdit] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [editingEnvironment, setEditingEnvironment] =
-    useState<DeploymentEnvironment | null>(null);
+    useState<Awaited<
+      ReturnType<typeof deploymentService.getEnvironment>
+    > | null>(null);
 
   const isEditing = editingEnvironment !== null;
 
@@ -101,6 +104,7 @@ export default function EnvironmentDialog({
       setFormData(initialEnvironmentFormState);
       setFormError(null);
       setIsSubmitting(false);
+      setIsLoadingEdit(false);
       setDeleteConfirmId(null);
       setEditingEnvironment(null);
     }
@@ -125,11 +129,20 @@ export default function EnvironmentDialog({
     setTabValue(1);
   };
 
-  const handleStartEdit = (environment: DeploymentEnvironment) => {
-    setEditingEnvironment(environment);
-    setFormData(buildEnvironmentFormStateForEdit(environment));
+  const handleStartEdit = async (environmentId: number) => {
+    setIsLoadingEdit(true);
     setFormError(null);
-    setTabValue(1);
+    try {
+      const environment = await deploymentService.getEnvironment(environmentId);
+      setEditingEnvironment(environment);
+      setFormData(buildEnvironmentFormStateForEdit(environment));
+      setTabValue(1);
+    } catch (error: unknown) {
+      const errorObj = error as { response?: { data?: { detail?: string } } };
+      setFormError(errorObj.response?.data?.detail || '加载环境详情失败');
+    } finally {
+      setIsLoadingEdit(false);
+    }
   };
 
   const handleSaveEnvironment = async () => {
@@ -233,6 +246,12 @@ export default function EnvironmentDialog({
           </Alert>
         )}
 
+        {tabValue === 0 && formError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {formError}
+          </Alert>
+        )}
+
         <TabPanel value={tabValue} index={0}>
           {environmentsLoading ? (
             <Box display="flex" justifyContent="center" p={3}>
@@ -256,6 +275,7 @@ export default function EnvironmentDialog({
               {environments.map((env) => (
                 <ListItemButton
                   key={env.id}
+                  disabled={isLoadingEdit}
                   onClick={() => handleSelectEnvironment(env.id)}
                   sx={{
                     border: 1,
@@ -305,10 +325,11 @@ export default function EnvironmentDialog({
                     <IconButton
                       edge="end"
                       size="small"
+                      disabled={isLoadingEdit}
                       aria-label={`编辑环境 ${env.name}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleStartEdit(env);
+                        void handleStartEdit(env.id);
                       }}
                     >
                       <EditIcon fontSize="small" />
@@ -316,6 +337,7 @@ export default function EnvironmentDialog({
                     <IconButton
                       edge="end"
                       size="small"
+                      disabled={isLoadingEdit}
                       aria-label={`删除环境 ${env.name}`}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -332,6 +354,12 @@ export default function EnvironmentDialog({
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
+          {isLoadingEdit ? (
+            <Box display="flex" justifyContent="center" p={3}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <>
           {formError && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {formError}
@@ -469,6 +497,8 @@ export default function EnvironmentDialog({
               label="设为默认环境"
             />
           </Box>
+            </>
+          )}
         </TabPanel>
       </DialogContent>
 
@@ -478,7 +508,7 @@ export default function EnvironmentDialog({
           <Button
             variant="contained"
             onClick={handleSaveEnvironment}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isLoadingEdit}
           >
             {isSubmitting ? (
               <CircularProgress size={20} />

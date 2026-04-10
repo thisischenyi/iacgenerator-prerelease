@@ -353,6 +353,21 @@ class DeploymentEnvironmentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class DeploymentEnvironmentDetailResponse(DeploymentEnvironmentResponse):
+    """Detailed deployment environment response for editing.
+
+    Non-secret credential identifiers are returned so the owner can edit them.
+    Secret values are masked as "***" when configured.
+    """
+
+    aws_access_key_id: Optional[str] = None
+    aws_secret_access_key: Optional[str] = None
+    azure_subscription_id: Optional[str] = None
+    azure_tenant_id: Optional[str] = None
+    azure_client_id: Optional[str] = None
+    azure_client_secret: Optional[str] = None
+
+
 # Deployment Schemas
 class DeploymentCreate(BaseModel):
     """Schema for creating a deployment."""

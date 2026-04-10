@@ -17,6 +17,7 @@ from app.models import (
 from app.schemas import (
     DeploymentEnvironmentCreate,
     DeploymentEnvironmentUpdate,
+    DeploymentEnvironmentDetailResponse,
     DeploymentEnvironmentResponse,
     DeploymentPlanRequest,
     DeploymentPlanResponse,
@@ -163,7 +164,7 @@ def create_environment(
 
 
 @router.get(
-    "/environments/{environment_id}", response_model=DeploymentEnvironmentResponse
+    "/environments/{environment_id}", response_model=DeploymentEnvironmentDetailResponse
 )
 def get_environment(
     environment_id: int,
@@ -186,7 +187,7 @@ def get_environment(
             detail=f"Environment with id {environment_id} not found",
         )
 
-    return DeploymentEnvironmentResponse(
+    return DeploymentEnvironmentDetailResponse(
         id=environment.id,
         name=environment.name,
         description=environment.description,
@@ -195,12 +196,34 @@ def get_environment(
             environment.aws_access_key_id and environment.aws_secret_access_key
         ),
         aws_region=environment.aws_region,
+        aws_access_key_id=(
+            _decrypt_optional(environment.aws_access_key_id)
+            if environment.aws_access_key_id
+            else None
+        ),
+        aws_secret_access_key="***" if environment.aws_secret_access_key else None,
         has_azure_credentials=bool(
             environment.azure_subscription_id
             and environment.azure_tenant_id
             and environment.azure_client_id
             and environment.azure_client_secret
         ),
+        azure_subscription_id=(
+            _decrypt_optional(environment.azure_subscription_id)
+            if environment.azure_subscription_id
+            else None
+        ),
+        azure_tenant_id=(
+            _decrypt_optional(environment.azure_tenant_id)
+            if environment.azure_tenant_id
+            else None
+        ),
+        azure_client_id=(
+            _decrypt_optional(environment.azure_client_id)
+            if environment.azure_client_id
+            else None
+        ),
+        azure_client_secret="***" if environment.azure_client_secret else None,
         is_default=environment.is_default,
         created_at=environment.created_at,
         updated_at=environment.updated_at,
@@ -264,6 +287,8 @@ def update_environment(
         "azure_client_id", "azure_client_secret",
     }
     for field, value in update_data.items():
+        if field in _credential_fields and value == "***":
+            continue
         if field in _credential_fields and value:
             value = encrypt_api_key(value)
         setattr(environment, field, value)

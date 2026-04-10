@@ -4,11 +4,13 @@ import {
   buildEnvironmentFormStateForEdit,
   buildEnvironmentUpdatePayload,
 } from './environmentDialogHelpers';
-import type { DeploymentEnvironment } from '../../services/api';
+import type {
+  DeploymentEnvironmentDetail,
+} from '../../services/api';
 
 describe('environment dialog edit helpers', () => {
-  it('builds edit form state from an existing azure environment without exposing secrets', () => {
-    const environment: DeploymentEnvironment = {
+  it('builds edit form state from environment detail and masks the secret value', () => {
+    const environment: DeploymentEnvironmentDetail = {
       id: 7,
       name: 'azure-demo-env',
       description: 'existing azure env',
@@ -19,6 +21,10 @@ describe('environment dialog edit helpers', () => {
       is_default: true,
       created_at: '2026-04-10T00:00:00Z',
       updated_at: null,
+      azure_subscription_id: 'sub-123',
+      azure_tenant_id: 'tenant-456',
+      azure_client_id: 'client-789',
+      azure_client_secret: '***',
     };
 
     const formState = buildEnvironmentFormStateForEdit(environment);
@@ -28,15 +34,15 @@ describe('environment dialog edit helpers', () => {
       description: 'existing azure env',
       cloud_platform: 'azure',
       is_default: true,
-      azure_subscription_id: '',
-      azure_tenant_id: '',
-      azure_client_id: '',
-      azure_client_secret: '',
+      azure_subscription_id: 'sub-123',
+      azure_tenant_id: 'tenant-456',
+      azure_client_id: 'client-789',
+      azure_client_secret: '***',
     });
   });
 
   it('omits blank credential fields when building an edit payload', () => {
-    const environment: DeploymentEnvironment = {
+    const environment: DeploymentEnvironmentDetail = {
       id: 9,
       name: 'azure-demo-env',
       description: 'existing azure env',
@@ -47,6 +53,10 @@ describe('environment dialog edit helpers', () => {
       is_default: false,
       created_at: '2026-04-10T00:00:00Z',
       updated_at: null,
+      azure_subscription_id: 'sub-123',
+      azure_tenant_id: 'tenant-456',
+      azure_client_id: 'client-789',
+      azure_client_secret: '***',
     };
 
     const payload = buildEnvironmentUpdatePayload(
@@ -57,10 +67,10 @@ describe('environment dialog edit helpers', () => {
         aws_access_key_id: '',
         aws_secret_access_key: '',
         aws_region: 'us-east-1',
-        azure_subscription_id: '',
-        azure_tenant_id: '',
-        azure_client_id: '',
-        azure_client_secret: '',
+        azure_subscription_id: 'sub-123',
+        azure_tenant_id: 'tenant-456',
+        azure_client_id: 'client-789',
+        azure_client_secret: '***',
         is_default: true,
       },
       environment
