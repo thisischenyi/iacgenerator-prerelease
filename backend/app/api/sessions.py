@@ -20,7 +20,7 @@ def list_sessions(
     """List sessions owned by current user."""
     sessions = (
         db.query(Session)
-        .filter(Session.user_id == str(current_user.id))
+        .filter(Session.user_id == current_user.id)
         .order_by(Session.created_at.desc())
         .all()
     )
@@ -49,7 +49,7 @@ def create_session(
     # Create new session
     session = Session(
         session_id=session_id,
-        user_id=str(current_user.id),
+        user_id=current_user.id,
         conversation_history=[],
         resource_info=[],  # Fixed: should be a list, not dict
         compliance_results={},
@@ -90,7 +90,7 @@ def get_session(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Session with id {session_id} not found",
         )
-    if session.user_id != str(current_user.id):
+    if session.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this session",
@@ -112,7 +112,7 @@ def delete_session(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Session with id {session_id} not found",
         )
-    if session.user_id != str(current_user.id):
+    if session.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to delete this session",

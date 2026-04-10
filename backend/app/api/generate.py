@@ -74,7 +74,7 @@ async def generate_code(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Session with id {session_id} not found",
             )
-        if session.user_id != str(current_user.id):
+        if session.user_id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to use this session",

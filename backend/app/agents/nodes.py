@@ -9,7 +9,7 @@ from app.agents.state import AgentState
 from app.agents.llm_client import LLMClient
 from app.agents.progress import ProgressTracker, AgentType
 from app.services.excel_parser import ExcelParserService
-from app.models import SecurityPolicy
+from app.models import SecurityPolicy, Session as ChatSession
 
 
 class AgentNodes:
@@ -913,10 +913,19 @@ Tags: Project=Demo, Environment=Production
         )
         state["workflow_state"] = "compliance_checking"
 
-        # Get enabled policies from database
-        policies = (
-            self.db.query(SecurityPolicy).filter(SecurityPolicy.enabled).all()
+        # Get enabled policies for the session's owner
+        session_id = state.get("session_id", "")
+        session_record = (
+            self.db.query(ChatSession)
+            .filter(ChatSession.session_id == session_id)
+            .first()
         )
+        owner_user_id = session_record.user_id if session_record else None
+
+        policy_query = self.db.query(SecurityPolicy).filter(SecurityPolicy.enabled)
+        if owner_user_id is not None:
+            policy_query = policy_query.filter(SecurityPolicy.user_id == owner_user_id)
+        policies = policy_query.all()
 
         print(f"[AGENT: ComplianceChecker] Found {len(policies)} enabled policies")
 

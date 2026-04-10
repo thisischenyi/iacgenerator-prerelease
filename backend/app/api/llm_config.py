@@ -10,7 +10,8 @@ from cryptography.fernet import Fernet, InvalidToken
 
 from app.core.database import get_db
 from app.core.config import get_settings
-from app.models import LLMConfig
+from app.core.security import get_current_user
+from app.models import LLMConfig, User
 from app.schemas import (
     LLMConfigCreate,
     LLMConfigResponse,
@@ -49,21 +50,11 @@ def list_llm_configs(
     skip: int = 0,
     limit: int = 100,
     active_only: bool = False,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Get all LLM configurations.
-
-    Args:
-        skip: Number of records to skip
-        limit: Maximum number of records to return
-        active_only: If True, return only active configurations
-        db: Database session
-
-    Returns:
-        List of LLM configurations
-    """
-    query = db.query(LLMConfig)
+    """Get all LLM configurations owned by current user."""
+    query = db.query(LLMConfig).filter(LLMConfig.user_id == current_user.id)
 
     if active_only:
         query = query.filter(LLMConfig.is_active)
@@ -75,25 +66,16 @@ def list_llm_configs(
 @router.post("", response_model=LLMConfigResponse, status_code=status.HTTP_201_CREATED)
 def create_llm_config(
     config_data: LLMConfigCreate,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Create a new LLM configuration.
-
-    Args:
-        config_data: LLM configuration data
-        db: Database session
-
-    Returns:
-        Created LLM configuration
-
-    Raises:
-        HTTPException: If configuration name already exists
-    """
-    # Check if config with same name exists
+    """Create a new LLM configuration for current user."""
     existing = (
         db.query(LLMConfig)
-        .filter(LLMConfig.config_name == config_data.config_name)
+        .filter(
+            LLMConfig.config_name == config_data.config_name,
+            LLMConfig.user_id == current_user.id,
+        )
         .first()
     )
 
@@ -103,12 +85,10 @@ def create_llm_config(
             detail=f"LLM configuration with name '{config_data.config_name}' already exists",
         )
 
-    # Encrypt API key
     encrypted_key = encrypt_api_key(config_data.api_key)
 
-    # Create new configuration
-    # Convert float parameters to integers (stored as int * 100)
     config = LLMConfig(
+        user_id=current_user.id,
         config_name=config_data.config_name,
         api_endpoint=config_data.api_endpoint,
         api_key_encrypted=encrypted_key,
@@ -131,22 +111,15 @@ def create_llm_config(
 @router.get("/{config_id}", response_model=LLMConfigResponse)
 def get_llm_config(
     config_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Get a specific LLM configuration by ID.
-
-    Args:
-        config_id: Configuration ID
-        db: Database session
-
-    Returns:
-        LLM configuration
-
-    Raises:
-        HTTPException: If configuration not found
-    """
-    config = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
+    """Get a specific LLM configuration by ID."""
+    config = (
+        db.query(LLMConfig)
+        .filter(LLMConfig.id == config_id, LLMConfig.user_id == current_user.id)
+        .first()
+    )
 
     if not config:
         raise HTTPException(
@@ -161,23 +134,15 @@ def get_llm_config(
 def update_llm_config(
     config_id: int,
     config_data: LLMConfigCreate,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Update an LLM configuration.
-
-    Args:
-        config_id: Configuration ID
-        config_data: Updated configuration data
-        db: Database session
-
-    Returns:
-        Updated LLM configuration
-
-    Raises:
-        HTTPException: If configuration not found or name conflict
-    """
-    config = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
+    """Update an LLM configuration."""
+    config = (
+        db.query(LLMConfig)
+        .filter(LLMConfig.id == config_id, LLMConfig.user_id == current_user.id)
+        .first()
+    )
 
     if not config:
         raise HTTPException(
@@ -185,11 +150,13 @@ def update_llm_config(
             detail=f"LLM configuration with id {config_id} not found",
         )
 
-    # Check for name conflict if name is being updated
     if config_data.config_name != config.config_name:
         existing = (
             db.query(LLMConfig)
-            .filter(LLMConfig.config_name == config_data.config_name)
+            .filter(
+                LLMConfig.config_name == config_data.config_name,
+                LLMConfig.user_id == current_user.id,
+            )
             .first()
         )
 
@@ -199,11 +166,9 @@ def update_llm_config(
                 detail=f"LLM configuration with name '{config_data.config_name}' already exists",
             )
 
-    # Update fields
     config.config_name = config_data.config_name
     config.api_endpoint = config_data.api_endpoint
 
-    # Only update API key if provided
     if config_data.api_key and config_data.api_key.strip():
         config.api_key_encrypted = encrypt_api_key(config_data.api_key)
 
@@ -224,22 +189,15 @@ def update_llm_config(
 @router.delete("/{config_id}", response_model=SuccessResponse)
 def delete_llm_config(
     config_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Delete an LLM configuration.
-
-    Args:
-        config_id: Configuration ID
-        db: Database session
-
-    Returns:
-        Success response
-
-    Raises:
-        HTTPException: If configuration not found
-    """
-    config = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
+    """Delete an LLM configuration."""
+    config = (
+        db.query(LLMConfig)
+        .filter(LLMConfig.id == config_id, LLMConfig.user_id == current_user.id)
+        .first()
+    )
 
     if not config:
         raise HTTPException(
@@ -259,22 +217,15 @@ def delete_llm_config(
 @router.post("/{config_id}/test", response_model=SuccessResponse)
 async def test_llm_connection(
     config_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Test LLM configuration connection by making a minimal API call.
-
-    Args:
-        config_id: Configuration ID
-        db: Database session
-
-    Returns:
-        Success response with test results
-
-    Raises:
-        HTTPException: If configuration not found or connection fails
-    """
-    config = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
+    """Test LLM configuration connection by making a minimal API call."""
+    config = (
+        db.query(LLMConfig)
+        .filter(LLMConfig.id == config_id, LLMConfig.user_id == current_user.id)
+        .first()
+    )
 
     if not config:
         raise HTTPException(
@@ -320,22 +271,15 @@ async def test_llm_connection(
 @router.patch("/{config_id}/activate", response_model=LLMConfigResponse)
 def activate_llm_config(
     config_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Activate an LLM configuration (deactivate all others).
-
-    Args:
-        config_id: Configuration ID
-        db: Database session
-
-    Returns:
-        Activated configuration
-
-    Raises:
-        HTTPException: If configuration not found
-    """
-    config = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
+    """Activate an LLM configuration (deactivate all others for this user)."""
+    config = (
+        db.query(LLMConfig)
+        .filter(LLMConfig.id == config_id, LLMConfig.user_id == current_user.id)
+        .first()
+    )
 
     if not config:
         raise HTTPException(
@@ -343,10 +287,11 @@ def activate_llm_config(
             detail=f"LLM configuration with id {config_id} not found",
         )
 
-    # Deactivate all configurations
-    db.query(LLMConfig).update({"is_active": False})
+    # Deactivate only this user's configurations
+    db.query(LLMConfig).filter(LLMConfig.user_id == current_user.id).update(
+        {"is_active": False}
+    )
 
-    # Activate selected configuration
     config.is_active = True
 
     db.commit()

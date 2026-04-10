@@ -50,20 +50,17 @@ def _decrypt_optional(value: Optional[str]) -> Optional[str]:
 def list_environments(
     skip: int = 0,
     limit: int = 100,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Get all deployment environments.
-
-    Args:
-        skip: Number of records to skip
-        limit: Maximum number of records to return
-        db: Database session
-
-    Returns:
-        List of deployment environments
-    """
-    environments = db.query(DeploymentEnvironment).offset(skip).limit(limit).all()
+    """Get all deployment environments owned by current user."""
+    environments = (
+        db.query(DeploymentEnvironment)
+        .filter(DeploymentEnvironment.user_id == current_user.id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
     # Convert to response with masked credentials
     result = []
@@ -99,24 +96,16 @@ def list_environments(
 )
 def create_environment(
     env_data: DeploymentEnvironmentCreate,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Create a new deployment environment.
-
-    Args:
-        env_data: Environment data
-        db: Database session
-
-    Returns:
-        Created environment
-
-    Raises:
-        HTTPException: If environment with same name exists
-    """
+    """Create a new deployment environment for current user."""
     existing = (
         db.query(DeploymentEnvironment)
-        .filter(DeploymentEnvironment.name == env_data.name)
+        .filter(
+            DeploymentEnvironment.name == env_data.name,
+            DeploymentEnvironment.user_id == current_user.id,
+        )
         .first()
     )
 
@@ -129,10 +118,12 @@ def create_environment(
     # If this is set as default, unset other defaults
     if env_data.is_default:
         db.query(DeploymentEnvironment).filter(
-            DeploymentEnvironment.is_default
+            DeploymentEnvironment.is_default,
+            DeploymentEnvironment.user_id == current_user.id,
         ).update({"is_default": False})
 
     environment = DeploymentEnvironment(
+        user_id=current_user.id,
         name=env_data.name,
         description=env_data.description,
         cloud_platform=env_data.cloud_platform,
@@ -176,24 +167,16 @@ def create_environment(
 )
 def get_environment(
     environment_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Get a specific deployment environment by ID.
-
-    Args:
-        environment_id: Environment ID
-        db: Database session
-
-    Returns:
-        Deployment environment
-
-    Raises:
-        HTTPException: If environment not found
-    """
+    """Get a specific deployment environment by ID."""
     environment = (
         db.query(DeploymentEnvironment)
-        .filter(DeploymentEnvironment.id == environment_id)
+        .filter(
+            DeploymentEnvironment.id == environment_id,
+            DeploymentEnvironment.user_id == current_user.id,
+        )
         .first()
     )
 
@@ -230,25 +213,16 @@ def get_environment(
 def update_environment(
     environment_id: int,
     env_data: DeploymentEnvironmentUpdate,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Update a deployment environment.
-
-    Args:
-        environment_id: Environment ID
-        env_data: Environment update data
-        db: Database session
-
-    Returns:
-        Updated environment
-
-    Raises:
-        HTTPException: If environment not found or name conflict
-    """
+    """Update a deployment environment."""
     environment = (
         db.query(DeploymentEnvironment)
-        .filter(DeploymentEnvironment.id == environment_id)
+        .filter(
+            DeploymentEnvironment.id == environment_id,
+            DeploymentEnvironment.user_id == current_user.id,
+        )
         .first()
     )
 
@@ -262,7 +236,10 @@ def update_environment(
     if env_data.name and env_data.name != environment.name:
         existing = (
             db.query(DeploymentEnvironment)
-            .filter(DeploymentEnvironment.name == env_data.name)
+            .filter(
+                DeploymentEnvironment.name == env_data.name,
+                DeploymentEnvironment.user_id == current_user.id,
+            )
             .first()
         )
         if existing:
@@ -276,6 +253,7 @@ def update_environment(
         db.query(DeploymentEnvironment).filter(
             DeploymentEnvironment.id != environment_id,
             DeploymentEnvironment.is_default,
+            DeploymentEnvironment.user_id == current_user.id,
         ).update({"is_default": False})
 
     update_data = env_data.model_dump(exclude_unset=True)
@@ -317,24 +295,16 @@ def update_environment(
 @router.delete("/environments/{environment_id}", response_model=SuccessResponse)
 def delete_environment(
     environment_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Delete a deployment environment.
-
-    Args:
-        environment_id: Environment ID
-        db: Database session
-
-    Returns:
-        Success response
-
-    Raises:
-        HTTPException: If environment not found
-    """
+    """Delete a deployment environment."""
     environment = (
         db.query(DeploymentEnvironment)
-        .filter(DeploymentEnvironment.id == environment_id)
+        .filter(
+            DeploymentEnvironment.id == environment_id,
+            DeploymentEnvironment.user_id == current_user.id,
+        )
         .first()
     )
 
@@ -405,7 +375,7 @@ def create_and_plan(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Session with id {request.session_id} not found",
         )
-    if session.user_id != str(current_user.id):
+    if session.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to deploy this session",
@@ -514,7 +484,7 @@ def apply_deployment(
             .filter(ChatSession.session_id == deployment_record.session_id)
             .first()
         )
-        if not session or session.user_id != str(current_user.id):
+        if not session or session.user_id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to apply this deployment",
@@ -580,7 +550,7 @@ def get_deployment(
     session = (
         db.query(ChatSession).filter(ChatSession.session_id == deployment.session_id).first()
     )
-    if not session or session.user_id != str(current_user.id):
+    if not session or session.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this deployment",
@@ -634,7 +604,7 @@ def list_deployments(
     user_session_ids = [
         row[0]
         for row in db.query(ChatSession.session_id)
-        .filter(ChatSession.user_id == str(current_user.id))
+        .filter(ChatSession.user_id == current_user.id)
         .all()
     ]
 
@@ -714,7 +684,7 @@ def destroy_deployment(
             .filter(ChatSession.session_id == deployment_record.session_id)
             .first()
         )
-        if not session or session.user_id != str(current_user.id):
+        if not session or session.user_id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to destroy this deployment",

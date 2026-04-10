@@ -587,10 +587,17 @@ export const useChatStore = create<ChatState>()(
     }),
     {
       name: 'iac-chat-storage',
-      partialize: (state) => ({ 
+      partialize: (state) => ({
         authUserId: state.authUserId,
-        sessions: state.sessions,
         currentSessionId: state.currentSessionId,
+        // Only persist session metadata, not message content.
+        // Messages are fetched fresh from server via syncSessionsFromServer().
+        sessions: Object.fromEntries(
+          Object.entries(state.sessions).map(([id, s]) => [
+            id,
+            { id: s.id, title: s.title, messages: [], createdAt: s.createdAt, updatedAt: s.updatedAt },
+          ])
+        ),
       }),
     }
   )

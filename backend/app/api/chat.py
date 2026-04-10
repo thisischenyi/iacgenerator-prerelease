@@ -47,7 +47,7 @@ async def chat(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Session with id {chat_request.session_id} not found",
             )
-        if session.user_id != str(current_user.id):
+        if session.user_id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to use this session",
@@ -166,7 +166,7 @@ async def chat_stream(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Session with id {chat_request.session_id} not found",
         )
-    if session.user_id != str(current_user.id):
+    if session.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to use this session",
