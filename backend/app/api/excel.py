@@ -1,6 +1,5 @@
 """Excel processing API routes."""
 
-import io
 import datetime
 from fastapi import APIRouter, UploadFile, File, HTTPException, status, Response
 from app.schemas import ExcelParseResult, TemplateType

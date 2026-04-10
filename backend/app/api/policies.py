@@ -1,10 +1,12 @@
 """Security policy management API routes."""
 
+import json
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.agents.llm_client import LLMClient
 from app.models import SecurityPolicy
 from app.schemas import (
     SecurityPolicyCreate,
@@ -38,14 +40,10 @@ def list_policies(
     query = db.query(SecurityPolicy)
 
     if enabled_only:
-        query = query.filter(SecurityPolicy.enabled == True)
+        query = query.filter(SecurityPolicy.enabled)
 
     policies = query.offset(skip).limit(limit).all()
     return policies
-
-
-from app.agents.llm_client import LLMClient
-import json
 
 
 def _convert_rule_to_executable(db: Session, natural_language_rule: str) -> dict:

@@ -118,8 +118,7 @@ export const chatService = {
   },
   
   createSession: async () => {
-    // Explicitly send user_id as null to match schema
-    const response = await api.post<{ session_id: string }>('/sessions', { user_id: null });
+    const response = await api.post<{ session_id: string }>('/sessions');
     return response.data;
   },
 

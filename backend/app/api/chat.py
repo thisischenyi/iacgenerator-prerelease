@@ -180,6 +180,9 @@ async def chat_stream(
         # Use a queue to bridge sync callbacks to async generator
         queue = asyncio.Queue()
 
+        # Capture the running loop before the callback closure uses it
+        loop = asyncio.get_running_loop()
+
         # Define callback for ProgressTracker
         def progress_callback(event: ProgressEvent):
             # This runs in the workflow thread
@@ -191,7 +194,6 @@ async def chat_stream(
         )
 
         # Run workflow in thread pool
-        loop = asyncio.get_event_loop()
         import concurrent.futures
 
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)

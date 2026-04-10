@@ -2,7 +2,7 @@
 
 import json
 import re
-from typing import Dict, Any, List
+from typing import Dict, List
 from sqlalchemy.orm import Session
 
 from app.agents.state import AgentState
@@ -10,7 +10,6 @@ from app.agents.llm_client import LLMClient
 from app.agents.progress import ProgressTracker, AgentType
 from app.services.excel_parser import ExcelParserService
 from app.models import SecurityPolicy
-from app.core.database import SessionLocal
 
 
 class AgentNodes:
@@ -208,7 +207,7 @@ class AgentNodes:
             state["messages"].append({"role": "assistant", "content": resource_summary})
 
             print(
-                f"[AGENT: InputParser] Set information_complete=True, transitioning to checking_compliance"
+                "[AGENT: InputParser] Set information_complete=True, transitioning to checking_compliance"
             )
             print("[AGENT: InputParser] FINISHED")
             print("=" * 80 + "\n")
@@ -365,7 +364,7 @@ class AgentNodes:
 
                     state["workflow_state"] = "information_collection"
                     print(
-                        f"[AGENT: InputParser] Successfully extracted resources, transitioning to information_collection"
+                        "[AGENT: InputParser] Successfully extracted resources, transitioning to information_collection"
                     )
                     print("[AGENT: InputParser] FINISHED")
                     print("=" * 80 + "\n")
@@ -619,7 +618,7 @@ Tags: Project=Demo, Environment=Production
                 if not existing_resources and new_resources:
                     state["resources"] = new_resources
                     print(
-                        f"[AGENT: InformationCollector] No existing resources, using new ones"
+                        "[AGENT: InformationCollector] No existing resources, using new ones"
                     )
                 elif new_resources:
                     # Normalize type names for comparison
@@ -742,7 +741,7 @@ Tags: Project=Demo, Environment=Production
                         else:
                             # Add new resource
                             print(
-                                f"[AGENT: InformationCollector]   Adding as new resource"
+                                "[AGENT: InformationCollector]   Adding as new resource"
                             )
                             # Normalize the type before adding
                             nr["type"] = normalized_new
@@ -916,7 +915,7 @@ Tags: Project=Demo, Environment=Production
 
         # Get enabled policies from database
         policies = (
-            self.db.query(SecurityPolicy).filter(SecurityPolicy.enabled == True).all()
+            self.db.query(SecurityPolicy).filter(SecurityPolicy.enabled).all()
         )
 
         print(f"[AGENT: ComplianceChecker] Found {len(policies)} enabled policies")
@@ -1125,7 +1124,7 @@ Tags: Project=Demo, Environment=Production
                         )
                     else:
                         print(
-                            f"[AGENT: ComplianceChecker]   - PASSED: All required tags present"
+                            "[AGENT: ComplianceChecker]   - PASSED: All required tags present"
                         )
 
             # 3. Future logic for other rule types (e.g., allowed_regions) can be added here
@@ -1135,14 +1134,14 @@ Tags: Project=Demo, Environment=Production
         state["compliance_warnings"] = warnings
         state["compliance_passed"] = len(violations) == 0
 
-        print(f"[AGENT: ComplianceChecker] Compliance check complete")
+        print("[AGENT: ComplianceChecker] Compliance check complete")
         print(f"[AGENT: ComplianceChecker] Violations: {len(violations)}")
         print(f"[AGENT: ComplianceChecker] Warnings: {len(warnings)}")
 
         if state["compliance_passed"]:
             state["workflow_state"] = "generating_code"
             ai_response = f"✓ Compliance check passed! Checked {len(policies)} policies. Proceeding to code generation..."
-            print(f"[AGENT: ComplianceChecker] Result: PASSED")
+            print("[AGENT: ComplianceChecker] Result: PASSED")
         else:
             state["workflow_state"] = "compliance_failed"
             state["should_continue"] = False
@@ -1153,7 +1152,7 @@ Tags: Project=Demo, Environment=Production
                 ai_response += f"- {v['resource']}: {v['issue']}\n"
                 print(f"[AGENT: ComplianceChecker]   - {v['resource']}: {v['issue']}")
             ai_response += "\nPlease fix these issues before proceeding."
-            print(f"[AGENT: ComplianceChecker] Result: FAILED")
+            print("[AGENT: ComplianceChecker] Result: FAILED")
 
         state["ai_response"] = ai_response
         state["messages"].append({"role": "assistant", "content": ai_response})
@@ -1737,7 +1736,7 @@ Please fix all the issues and output the corrected Terraform code.
                 f"Regenerated {len(fixed_files)} Terraform files based on review feedback"
             )
 
-            ai_response = f"♻ Code regenerated based on review feedback.\n\n"
+            ai_response = "♻ Code regenerated based on review feedback.\n\n"
             ai_response += f"**Files updated:** {', '.join(fixed_files.keys())}\n"
             ai_response += "Submitting for re-review..."
 
@@ -1857,7 +1856,7 @@ Please fix all the issues and output the corrected Terraform code.
             print(
                 f"[AGENT: CodeGenerator] Received {len(state['resources'])} resources"
             )
-            print(f"[AGENT: CodeGenerator] Resources structure:")
+            print("[AGENT: CodeGenerator] Resources structure:")
             for idx, resource in enumerate(state["resources"]):
                 print(
                     f"  [{idx}] Type: {resource.get('resource_type', resource.get('type'))}, "
@@ -1906,7 +1905,7 @@ Please fix all the issues and output the corrected Terraform code.
                     f"[AGENT: CodeGenerator] Generation summary: {state['generation_summary']}"
                 )
 
-                ai_response = f"✓ Successfully generated Terraform code!\n\n"
+                ai_response = "✓ Successfully generated Terraform code!\n\n"
                 ai_response += (
                     f"**Files created:** {', '.join(generated_files.keys())}\n"
                 )
@@ -1924,7 +1923,7 @@ Please fix all the issues and output the corrected Terraform code.
                     f"Code generation error: {str(e)}"
                 ]
                 ai_response = f"✗ Error generating code: {str(e)}"
-                print(f"[AGENT: CodeGenerator] Error details added to state")
+                print("[AGENT: CodeGenerator] Error details added to state")
         else:
             print("[AGENT: CodeGenerator] No resources found in state")
             ai_response = "No resources to generate code for."

@@ -26,11 +26,13 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
   const handleDownload = (filename: string, content: string) => {
     const element = document.createElement('a');
     const file = new Blob([content], {type: 'text/plain'});
-    element.href = URL.createObjectURL(file);
+    const objectUrl = URL.createObjectURL(file);
+    element.href = objectUrl;
     element.download = filename;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
+    URL.revokeObjectURL(objectUrl);
   };
 
   const handleCopy = (filename: string, content: string) => {
@@ -72,9 +74,10 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
             <Box className="markdown-content">
               <ReactMarkdown
                 components={{
-                  code({ inline, className, children, ...props }: React.ComponentPropsWithoutRef<'code'> & { inline?: boolean }) {
+                  code({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'>) {
                     const match = /language-(\w+)/.exec(className || '');
-                    return !inline && match ? (
+                    const isCodeBlock = Boolean(match || className?.includes('language-'));
+                    return isCodeBlock && match ? (
                       <SyntaxHighlighter
                         style={vscDarkPlus as unknown as { [key: string]: React.CSSProperties }}
                         language={match[1]}

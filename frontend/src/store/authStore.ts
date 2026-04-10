@@ -87,9 +87,8 @@ export const useAuthStore = create<AuthState>()(
             loading: false,
           });
         } catch (error: unknown) {
-          void error;
           set({
-            error: 'Invalid email or password',
+            error: getErrorMessage(error, 'Invalid email or password'),
             loading: false,
           });
           throw error;
@@ -114,9 +113,8 @@ export const useAuthStore = create<AuthState>()(
             loading: false,
           });
         } catch (error: unknown) {
-          void error;
           set({
-            error: 'Invalid email or password',
+            error: getErrorMessage(error, 'Registration failed. Please try again.'),
             loading: false,
           });
           throw error;

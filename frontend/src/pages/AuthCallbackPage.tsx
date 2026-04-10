@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Box, CircularProgress, Container, Paper, Typography } from '@mui/material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -8,6 +8,7 @@ export default function AuthCallbackPage() {
   const navigate = useNavigate();
   const setTokenFromOAuth = useAuthStore((s) => s.setTokenFromOAuth);
   const error = useAuthStore((s) => s.error);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const token = params.get('token');
@@ -17,15 +18,17 @@ export default function AuthCallbackPage() {
     }
     setTokenFromOAuth(token)
       .then(() => navigate('/', { replace: true }))
-      .catch(() => undefined);
+      .catch(() => setLoading(false));
   }, [navigate, params, setTokenFromOAuth]);
 
   return (
     <Container maxWidth="sm" sx={{ py: 8 }}>
       <Paper sx={{ p: 4 }}>
         <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
-          <CircularProgress size={28} />
-          <Typography variant="h6">Completing sign-in...</Typography>
+          {loading && !error && <CircularProgress size={28} />}
+          <Typography variant="h6">
+            {error ? 'Sign-in failed' : 'Completing sign-in...'}
+          </Typography>
           {error && <Alert severity="error">{error}</Alert>}
         </Box>
       </Paper>

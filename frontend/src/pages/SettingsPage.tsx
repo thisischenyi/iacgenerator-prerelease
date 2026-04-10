@@ -11,10 +11,7 @@ import {
   Alert,
   CircularProgress
 } from '@mui/material';
-import axios from 'axios';
-
-// Since we haven't implemented full LLM config store, we'll do direct API calls here
-// In a real app, this would be in a store
+import api from '../services/api';
 
 export default function SettingsPage() {
   const [config, setConfig] = useState({
@@ -38,7 +35,7 @@ export default function SettingsPage() {
     try {
       setLoading(true);
       // Fetch active config first
-      const response = await axios.get('/api/llm-config?active_only=true');
+      const response = await api.get('/llm-config?active_only=true');
       if (response.data && response.data.length > 0) {
         const activeConfig = response.data[0];
         // Backend stores these as integers (x100), so we need to divide by 100
@@ -83,20 +80,20 @@ export default function SettingsPage() {
       if (configId) {
         // Update existing config
         // If API key is empty, it will not be updated on backend (kept as is)
-        response = await axios.put(`/api/llm-config/${configId}`, config);
+        response = await api.put(`/llm-config/${configId}`, config);
       } else {
         // Create new config
         // Basic validation for new config
         if (!config.api_key) {
           throw new Error('API Key is required for new configuration');
         }
-        response = await axios.post('/api/llm-config', config);
+        response = await api.post('/llm-config', config);
         configId = response.data.id;
       }
 
       // Handle activation
       if (config.is_active && configId) {
-        await axios.patch(`/api/llm-config/${configId}/activate`);
+        await api.patch(`/llm-config/${configId}/activate`);
       }
 
       setMessage({ type: 'success', text: 'Configuration saved successfully' });

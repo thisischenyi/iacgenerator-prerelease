@@ -1,7 +1,7 @@
 import os
 import logging
-from pydantic_settings import BaseSettings
-from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import model_validator
 from typing import List
 from functools import lru_cache
 
@@ -17,6 +17,8 @@ _INSECURE_SECRET_KEY = "change-this-to-a-secret-key-in-production"
 
 class Settings(BaseSettings):
     """Application settings."""
+
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
     # LLM Configuration
     OPENAI_API_BASE: str = "https://api.openai.com/v1"
@@ -47,27 +49,27 @@ class Settings(BaseSettings):
     # Application
     APP_HOST: str = "0.0.0.0"
     APP_PORT: int = 8000
-    DEBUG: bool = True
+    DEBUG: bool = False
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
 
     # File Upload
     MAX_UPLOAD_SIZE_MB: int = 10
     UPLOAD_DIR: str = "./uploads"
 
-    @field_validator("SECRET_KEY")
-    @classmethod
-    def warn_insecure_secret_key(cls, v: str) -> str:
-        """Warn if SECRET_KEY is still set to the insecure default value."""
-        if v == _INSECURE_SECRET_KEY:
+    @model_validator(mode="after")
+    def validate_secret_key(self) -> "Settings":
+        """Warn or fail if SECRET_KEY is the insecure default."""
+        if self.SECRET_KEY == _INSECURE_SECRET_KEY:
+            if not self.DEBUG:
+                raise ValueError(
+                    "SECRET_KEY must be changed from the default value in production "
+                    "(set DEBUG=True to suppress this error in development)."
+                )
             logging.warning(
                 "SECRET_KEY is using the default insecure value. "
                 "Set a strong SECRET_KEY in your .env file before deploying to production."
             )
-        return v
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+        return self
 
 
 @lru_cache()

@@ -216,7 +216,7 @@ class IaCAgentWorkflow:
             Final agent state
         """
         print("\n" + "=" * 80)
-        print(f"[Workflow] STARTING WORKFLOW")
+        print("[Workflow] STARTING WORKFLOW")
         print(f"[Workflow] Session ID: {session_id}")
         print(f"[Workflow] User input length: {len(user_input)} chars")
         print(f"[Workflow] Excel data: {'Yes' if excel_data else 'No'}")
@@ -256,8 +256,13 @@ class IaCAgentWorkflow:
                 if isinstance(res, dict):
                     resources_dicts.append(res)
                 else:
-                    # Assume it's a Pydantic model
-                    resources_dicts.append(res if isinstance(res, dict) else res)
+                    # Serialize Pydantic model or dataclass to dict
+                    if hasattr(res, "model_dump"):
+                        resources_dicts.append(res.model_dump())
+                    elif hasattr(res, "__dict__"):
+                        resources_dicts.append(vars(res))
+                    else:
+                        resources_dicts.append(res)
             state["resources"] = resources_dicts
 
         # Run graph
@@ -327,7 +332,7 @@ class IaCAgentWorkflow:
             Final agent state
         """
         print("\n" + "=" * 80)
-        print(f"[Workflow] STARTING STREAMING WORKFLOW")
+        print("[Workflow] STARTING STREAMING WORKFLOW")
         print(f"[Workflow] Session ID: {session_id}")
         print("=" * 80)
 

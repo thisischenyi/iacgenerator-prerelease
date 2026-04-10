@@ -4,7 +4,6 @@ from typing import List, Dict, Any, Optional
 from openai import OpenAI
 from sqlalchemy.orm import Session
 
-from app.models import LLMConfig
 from app.core.database import SessionLocal
 
 

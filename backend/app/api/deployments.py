@@ -117,7 +117,7 @@ def create_environment(
     # If this is set as default, unset other defaults
     if env_data.is_default:
         db.query(DeploymentEnvironment).filter(
-            DeploymentEnvironment.is_default == True
+            DeploymentEnvironment.is_default
         ).update({"is_default": False})
 
     environment = DeploymentEnvironment(
@@ -263,7 +263,7 @@ def update_environment(
     if env_data.is_default:
         db.query(DeploymentEnvironment).filter(
             DeploymentEnvironment.id != environment_id,
-            DeploymentEnvironment.is_default == True,
+            DeploymentEnvironment.is_default,
         ).update({"is_default": False})
 
     update_data = env_data.model_dump(exclude_unset=True)
@@ -400,10 +400,10 @@ def create_and_plan(
         validated_terraform_code = AzureTerraformValidator.validate_generated_files(
             request.terraform_code
         )
-        logger.info(f"[DEPLOY] Terraform code validated by AzureTerraformValidator")
+        logger.info("[DEPLOY] Terraform code validated by AzureTerraformValidator")
 
         # Create deployment with validated code
-        logger.info(f"[DEPLOY] Creating deployment...")
+        logger.info("[DEPLOY] Creating deployment...")
         deployment = executor.create_deployment(
             session_id=request.session_id,
             environment_id=request.environment_id,
@@ -412,7 +412,7 @@ def create_and_plan(
         logger.info(f"[DEPLOY] Deployment created: {deployment.deployment_id}")
 
         # Run plan
-        logger.info(f"[DEPLOY] Running terraform plan...")
+        logger.info("[DEPLOY] Running terraform plan...")
         deployment = executor.run_plan(deployment.deployment_id)
         logger.info(f"[DEPLOY] Plan completed with status: {deployment.status}")
 
@@ -427,7 +427,7 @@ def create_and_plan(
         )
 
         if deployment.status == DeploymentStatus.PLAN_FAILED:
-            logger.error(f"[DEPLOY] Plan FAILED!")
+            logger.error("[DEPLOY] Plan FAILED!")
             logger.error(f"[DEPLOY] Error message: {deployment.error_message}")
             logger.error(
                 f"[DEPLOY] Plan output: {deployment.plan_output[:2000] if deployment.plan_output else 'None'}"
