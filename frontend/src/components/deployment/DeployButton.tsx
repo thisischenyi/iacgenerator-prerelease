@@ -14,7 +14,7 @@ import EnvironmentDialog from './EnvironmentDialog';
 import PlanProgressDialog from './PlanProgressDialog';
 import PlanPreviewDialog from './PlanPreviewDialog';
 import DeploymentResultDialog from './DeploymentResultDialog';
-import { useDeploymentStore } from '../../store/deploymentStore';
+import { getApiErrorDetail, useDeploymentStore } from '../../store/deploymentStore';
 import { useChatStore } from '../../store/chatStore';
 import type { DeploymentStatusType } from '../../services/api';
 
@@ -102,19 +102,7 @@ export default function DeployButton({ codeBlocks }: DeployButtonProps) {
       console.log(`[UI: Deploy] Plan dialog opened`);
     } catch (err: unknown) {
       console.error(`[UI: Deploy] runPlan failed:`, err);
-      const errorObj = err as { response?: { data?: { detail?: string | { message?: string; error?: string } } } };
-      const detail = errorObj.response?.data?.detail;
-      let msg = '执行 Plan 失败';
-
-      if (typeof detail === 'string') {
-        msg = detail;
-      } else if (detail && typeof detail === 'object') {
-        msg = detail.message || msg;
-        if (detail.error) {
-          msg += `: ${detail.error}`;
-        }
-      }
-      
+      const msg = getApiErrorDetail(err, '执行 Plan 失败');
       console.error(`[UI: Deploy] Error message: ${msg}`);
       setError(msg);
       setProgressDialogOpen(false);
@@ -200,7 +188,9 @@ export default function DeployButton({ codeBlocks }: DeployButtonProps) {
     <Box sx={{ mt: 2 }}>
       {error && (
         <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError(null)}>
-          {error}
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+            {error}
+          </Typography>
         </Alert>
       )}
 

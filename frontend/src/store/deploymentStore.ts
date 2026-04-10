@@ -10,11 +10,34 @@ import {
   type DeploymentStatusType,
 } from '../services/api';
 
-type ApiError = { response?: { data?: { detail?: string | { message?: string } } } };
-const getApiErrorDetail = (error: unknown, fallback: string): string => {
+type ApiErrorDetail = {
+  message?: string;
+  error?: string;
+  plan_output?: string;
+  apply_output?: string;
+};
+
+type ApiError = { response?: { data?: { detail?: string | ApiErrorDetail } } };
+
+export const getApiErrorDetail = (error: unknown, fallback: string): string => {
   const detail = (error as ApiError).response?.data?.detail;
   if (!detail) return fallback;
-  return typeof detail === 'object' ? (detail.message ?? fallback) : detail;
+  if (typeof detail === 'string') {
+    return detail;
+  }
+
+  const primaryParts = [detail.message, detail.error].filter(
+    (part): part is string => typeof part === 'string' && part.trim().length > 0
+  );
+  const primaryMessage = primaryParts.join(': ') || fallback;
+  const executionOutput =
+    (typeof detail.plan_output === 'string' && detail.plan_output.trim()) ||
+    (typeof detail.apply_output === 'string' && detail.apply_output.trim()) ||
+    '';
+
+  return executionOutput
+    ? `${primaryMessage}\n\n${executionOutput}`
+    : primaryMessage;
 };
 
 interface DeploymentState {
