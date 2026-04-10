@@ -1,6 +1,6 @@
 import { Box, Paper, Typography, Avatar, useTheme, IconButton, Tooltip } from '@mui/material';
 import { Person as PersonIcon, SmartToy as BotIcon, Download as DownloadIcon, ContentCopy as CopyIcon, Check as CheckIcon } from '@mui/icons-material';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -72,14 +72,13 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
             <Box className="markdown-content">
               <ReactMarkdown
                 components={{
-                  code({ node, inline, className, children, ...props }: any) {
+                  code({ inline, className, children, ...props }: React.ComponentPropsWithoutRef<'code'> & { inline?: boolean }) {
                     const match = /language-(\w+)/.exec(className || '');
                     return !inline && match ? (
                       <SyntaxHighlighter
-                        style={vscDarkPlus}
+                        style={vscDarkPlus as unknown as { [key: string]: React.CSSProperties }}
                         language={match[1]}
                         PreTag="div"
-                        {...props}
                       >
                         {String(children).replace(/\n$/, '')}
                       </SyntaxHighlighter>

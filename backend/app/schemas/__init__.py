@@ -1,6 +1,6 @@
 """Pydantic schemas for API requests and responses."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -67,8 +67,7 @@ class SecurityPolicyResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # LLM Config Schemas
@@ -104,8 +103,7 @@ class LLMConfigResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Chat Schemas
@@ -221,8 +219,7 @@ class SessionResponse(BaseModel):
     generated_code: Optional[Dict[str, str]] = None
     workflow_state: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Auth Schemas
@@ -250,8 +247,7 @@ class UserProfileResponse(BaseModel):
     provider: str
     avatar_url: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AuthTokenResponse(BaseModel):
@@ -354,8 +350,7 @@ class DeploymentEnvironmentResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Deployment Schemas
@@ -396,8 +391,7 @@ class DeploymentResponse(BaseModel):
     updated_at: Optional[datetime]
     completed_at: Optional[datetime]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DeploymentPlanRequest(BaseModel):
@@ -431,3 +425,4 @@ class DeploymentApplyResponse(BaseModel):
     apply_output: Optional[str] = None
     terraform_outputs: Optional[Dict[str, Any]] = None
     error_message: Optional[str] = None
+

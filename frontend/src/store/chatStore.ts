@@ -48,8 +48,8 @@ interface ChatState {
   renameSession: (sessionId: string, newTitle: string) => void;
   
   // Message operations
-  sendMessage: (content: string, resources?: any[]) => Promise<void>;
-  sendMessageWithProgress: (content: string, resources?: any[]) => Promise<void>;
+  sendMessage: (content: string, resources?: Record<string, unknown>[]) => Promise<void>;
+  sendMessageWithProgress: (content: string, resources?: Record<string, unknown>[]) => Promise<void>;
   
   // Progress management
   resetProgress: () => void;
@@ -164,8 +164,9 @@ export const useChatStore = create<ChatState>()(
       },
       
       // Original sendMessage (non-streaming, for fallback)
-      sendMessage: async (content: string, resources?: any[]) => {
-        let { currentSessionId, sessions } = get();
+      sendMessage: async (content: string, resources?: Record<string, unknown>[]) => {
+        let { currentSessionId } = get();
+        const { sessions } = get();
         
         // Auto-create session if none exists
         if (!currentSessionId) {
@@ -239,8 +240,9 @@ export const useChatStore = create<ChatState>()(
       },
       
       // New streaming sendMessage with progress tracking
-      sendMessageWithProgress: async (content: string, resources?: any[]) => {
-        let { currentSessionId, sessions } = get();
+      sendMessageWithProgress: async (content: string, resources?: Record<string, unknown>[]) => {
+        let { currentSessionId } = get();
+        const { sessions } = get();
         
         // Auto-create session if none exists
         if (!currentSessionId) {
@@ -484,8 +486,8 @@ export const useChatStore = create<ChatState>()(
             const sessionId = item.session_id;
             const created = new Date(item.created_at).getTime() || Date.now();
             const rawMessages: Message[] = (item.conversation_history || [])
-              .map((msg) => ({
-                role: msg.role === 'assistant' ? 'assistant' : 'user',
+              .map((msg: { role?: string; content?: string; code_blocks?: Message['code_blocks'] }) => ({
+                role: (msg.role === 'assistant' ? 'assistant' : 'user') as Message['role'],
                 content: msg.content || '',
                 code_blocks: msg.code_blocks,
               }))

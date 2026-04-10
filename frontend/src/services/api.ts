@@ -26,7 +26,7 @@ api.interceptors.request.use((config) => {
 export interface ChatRequest {
   session_id?: string;
   message: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 export interface ChatResponse {
@@ -154,18 +154,31 @@ export const excelService = {
   }
 };
 
+export interface PolicyCreate {
+  name: string;
+  description?: string;
+  natural_language_rule: string;
+  cloud_platform?: CloudPlatform;
+  severity?: 'error' | 'warning';
+  enabled?: boolean;
+}
+
+export interface PolicyUpdate extends Partial<PolicyCreate> {
+  executable_rule?: Record<string, unknown>;
+}
+
 export const policyService = {
   getPolicies: async () => {
     const response = await api.get('/policies');
     return response.data;
   },
   
-  createPolicy: async (policy: any) => {
+  createPolicy: async (policy: PolicyCreate | Partial<PolicyCreate>) => {
     const response = await api.post('/policies', policy);
     return response.data;
   },
   
-  updatePolicy: async (id: number, policy: any) => {
+  updatePolicy: async (id: number, policy: PolicyUpdate | Partial<PolicyCreate>) => {
     const response = await api.put(`/policies/${id}`, policy);
     return response.data;
   },
@@ -236,7 +249,7 @@ export interface Deployment {
   plan_output: string | null;
   plan_summary: PlanSummary | null;
   apply_output: string | null;
-  terraform_outputs: Record<string, any> | null;
+  terraform_outputs: Record<string, unknown> | null;
   error_message: string | null;
   created_at: string;
   updated_at: string | null;
@@ -260,7 +273,7 @@ export interface DeploymentApplyResponse {
   deployment_id: string;
   status: DeploymentStatusType;
   apply_output: string | null;
-  terraform_outputs: Record<string, any> | null;
+  terraform_outputs: Record<string, unknown> | null;
   error_message: string | null;
 }
 
@@ -292,11 +305,12 @@ export const deploymentService = {
       const response = await api.post<DeploymentPlanResponse>('/deployments/plan', request);
       console.log(`[API: Deploy] Plan response received:`, response.data);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`[API: Deploy] Plan request failed:`, error);
-      if (error.response) {
-        console.error(`[API: Deploy] Error response:`, error.response.data);
-        console.error(`[API: Deploy] Error status:`, error.response.status);
+      const axErr = error as { response?: { data?: unknown; status?: number } };
+      if (axErr.response) {
+        console.error(`[API: Deploy] Error response:`, axErr.response.data);
+        console.error(`[API: Deploy] Error status:`, axErr.response.status);
       }
       throw error;
     }
@@ -310,11 +324,12 @@ export const deploymentService = {
       });
       console.log(`[API: Deploy] Apply response received:`, response.data);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`[API: Deploy] Apply request failed:`, error);
-      if (error.response) {
-        console.error(`[API: Deploy] Error response:`, error.response.data);
-        console.error(`[API: Deploy] Error status:`, error.response.status);
+      const axErr = error as { response?: { data?: unknown; status?: number } };
+      if (axErr.response) {
+        console.error(`[API: Deploy] Error response:`, axErr.response.data);
+        console.error(`[API: Deploy] Error status:`, axErr.response.status);
       }
       throw error;
     }

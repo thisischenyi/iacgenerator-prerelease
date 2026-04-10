@@ -109,19 +109,19 @@ export default function SettingsPage() {
           setConfig(prev => ({ ...prev, id: configId }));
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Save configuration failed:', error);
       
       let errorMsg = 'Failed to save configuration';
-      const detail = error.response?.data?.detail;
+      const apiErr = error as { response?: { data?: { detail?: string | Array<{ loc: string[]; msg: string }> } }; message?: string };
+      const detail = apiErr.response?.data?.detail;
       
       if (typeof detail === 'string') {
         errorMsg = detail;
       } else if (Array.isArray(detail)) {
-        // Pydantic validation error is an array
-        errorMsg = detail.map((e: any) => `${e.loc.join('.')}: ${e.msg}`).join(', ');
-      } else if (error.message) {
-        errorMsg = error.message;
+        errorMsg = detail.map((e) => `${e.loc.join('.')}: ${e.msg}`).join(', ');
+      } else if (apiErr.message) {
+        errorMsg = apiErr.message;
       }
 
       setMessage({ 
@@ -133,7 +133,7 @@ export default function SettingsPage() {
     }
   };
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: unknown) => {
     setConfig(prev => ({ ...prev, [field]: value }));
   };
 

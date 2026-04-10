@@ -10,6 +10,13 @@ import {
   type DeploymentStatusType,
 } from '../services/api';
 
+type ApiError = { response?: { data?: { detail?: string | { message?: string } } } };
+const getApiErrorDetail = (error: unknown, fallback: string): string => {
+  const detail = (error as ApiError).response?.data?.detail;
+  if (!detail) return fallback;
+  return typeof detail === 'object' ? (detail.message ?? fallback) : detail;
+};
+
 interface DeploymentState {
   // Environments
   environments: DeploymentEnvironment[];
@@ -42,7 +49,7 @@ interface DeploymentState {
 
 export const useDeploymentStore = create<DeploymentState>()(
   persist(
-    (set, _get) => ({
+    (set) => ({
       // Initial state
       environments: [],
       environmentsLoading: false,
@@ -60,10 +67,10 @@ export const useDeploymentStore = create<DeploymentState>()(
         try {
           const environments = await deploymentService.getEnvironments();
           set({ environments, environmentsLoading: false });
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error('Failed to fetch environments:', error);
           set({
-            environmentsError: error.response?.data?.detail || 'Failed to fetch environments',
+            environmentsError: getApiErrorDetail(error, 'Failed to fetch environments'),
             environmentsLoading: false,
           });
         }
@@ -78,10 +85,10 @@ export const useDeploymentStore = create<DeploymentState>()(
             environmentsLoading: false,
           }));
           return newEnv;
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error('Failed to create environment:', error);
           set({
-            environmentsError: error.response?.data?.detail || 'Failed to create environment',
+            environmentsError: getApiErrorDetail(error, 'Failed to create environment'),
             environmentsLoading: false,
           });
           throw error;
@@ -98,10 +105,10 @@ export const useDeploymentStore = create<DeploymentState>()(
             ),
             environmentsLoading: false,
           }));
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error('Failed to update environment:', error);
           set({
-            environmentsError: error.response?.data?.detail || 'Failed to update environment',
+            environmentsError: getApiErrorDetail(error, 'Failed to update environment'),
             environmentsLoading: false,
           });
           throw error;
@@ -116,10 +123,10 @@ export const useDeploymentStore = create<DeploymentState>()(
             environments: state.environments.filter((env) => env.id !== id),
             environmentsLoading: false,
           }));
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error('Failed to delete environment:', error);
           set({
-            environmentsError: error.response?.data?.detail || 'Failed to delete environment',
+            environmentsError: getApiErrorDetail(error, 'Failed to delete environment'),
             environmentsLoading: false,
           });
           throw error;
@@ -152,15 +159,10 @@ export const useDeploymentStore = create<DeploymentState>()(
             deploymentLoading: false,
           });
           return response;
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error('[Store: Deploy] runPlan failed:', error);
-          const errorDetail = error.response?.data?.detail;
-          const errorMessage =
-            typeof errorDetail === 'object'
-              ? errorDetail.message || JSON.stringify(errorDetail)
-              : errorDetail || 'Failed to run terraform plan';
           set({
-            deploymentError: errorMessage,
+            deploymentError: getApiErrorDetail(error, 'Failed to run terraform plan'),
             deploymentLoading: false,
           });
           throw error;
@@ -179,10 +181,10 @@ export const useDeploymentStore = create<DeploymentState>()(
             deploymentLoading: false,
           });
           return response;
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error('[Store: Deploy] runApply failed:', error);
           set({
-            deploymentError: error.response?.data?.detail || 'Failed to run terraform apply',
+            deploymentError: getApiErrorDetail(error, 'Failed to run terraform apply'),
             deploymentLoading: false,
           });
           throw error;
@@ -194,7 +196,7 @@ export const useDeploymentStore = create<DeploymentState>()(
           const deployment = await deploymentService.getDeployment(deploymentId);
           set({ currentDeployment: deployment });
           return deployment;
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error('Failed to get deployment status:', error);
           throw error;
         }
@@ -227,3 +229,4 @@ export const isDeploymentComplete = (status: DeploymentStatusType): boolean => {
 export const canApplyDeployment = (status: DeploymentStatusType): boolean => {
   return status === 'plan_ready';
 };
+

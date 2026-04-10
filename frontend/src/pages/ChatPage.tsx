@@ -33,15 +33,15 @@ export default function ChatPage() {
     }
   }, [currentSessionId, createNewSession]);
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleSend = async () => {
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSend= async () => {
     if (!input.trim() || isLoading) return;
     
     const content = input;

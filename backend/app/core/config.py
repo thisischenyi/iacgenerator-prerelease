@@ -1,5 +1,7 @@
 import os
+import logging
 from pydantic_settings import BaseSettings
+from pydantic import field_validator
 from typing import List
 from functools import lru_cache
 
@@ -9,6 +11,8 @@ _backend_dir = os.path.dirname(
 )
 _db_path = os.path.join(_backend_dir, "iac_generator.db")
 _default_db_url = f"sqlite:///{_db_path}"
+
+_INSECURE_SECRET_KEY = "change-this-to-a-secret-key-in-production"
 
 
 class Settings(BaseSettings):
@@ -25,7 +29,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = _default_db_url
 
     # Security
-    SECRET_KEY: str = "change-this-to-a-secret-key-in-production"
+    SECRET_KEY: str = _INSECURE_SECRET_KEY
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     FRONTEND_URL: str = "http://localhost:5173"
@@ -49,6 +53,17 @@ class Settings(BaseSettings):
     # File Upload
     MAX_UPLOAD_SIZE_MB: int = 10
     UPLOAD_DIR: str = "./uploads"
+
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def warn_insecure_secret_key(cls, v: str) -> str:
+        """Warn if SECRET_KEY is still set to the insecure default value."""
+        if v == _INSECURE_SECRET_KEY:
+            logging.warning(
+                "SECRET_KEY is using the default insecure value. "
+                "Set a strong SECRET_KEY in your .env file before deploying to production."
+            )
+        return v
 
     class Config:
         env_file = ".env"
