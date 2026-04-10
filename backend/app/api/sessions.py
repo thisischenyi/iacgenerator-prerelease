@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session as DBSession
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models import Session, User
-from app.schemas import SessionCreate, SessionResponse
+from app.schemas import SessionResponse
 
 router = APIRouter()
 
@@ -29,7 +29,6 @@ def list_sessions(
 
 @router.post("", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
 def create_session(
-    session_data: SessionCreate,
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
@@ -37,7 +36,6 @@ def create_session(
     Create a new user session.
 
     Args:
-        session_data: Session creation data
         db: Database session
 
     Returns:

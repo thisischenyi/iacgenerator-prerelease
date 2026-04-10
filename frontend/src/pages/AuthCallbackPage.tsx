@@ -3,6 +3,8 @@ import { Alert, Box, CircularProgress, Container, Paper, Typography } from '@mui
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 
+const exchangedOAuthCodes = new Set<string>();
+
 export default function AuthCallbackPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -16,10 +18,17 @@ export default function AuthCallbackPage() {
       navigate('/login', { replace: true });
       return;
     }
+    if (exchangedOAuthCodes.has(code)) {
+      return;
+    }
+    exchangedOAuthCodes.add(code);
     // Exchange the one-time code for a JWT via a protected POST endpoint
     setTokenFromOAuth(code)
       .then(() => navigate('/', { replace: true }))
-      .catch(() => setLoading(false));
+      .catch(() => {
+        exchangedOAuthCodes.delete(code);
+        setLoading(false);
+      });
   }, [navigate, params, setTokenFromOAuth]);
 
   return (
