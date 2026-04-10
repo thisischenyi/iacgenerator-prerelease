@@ -101,7 +101,7 @@ export const authService = {
     return response.data;
   },
   exchangeCode: async (code: string) => {
-    const response = await api.post<AuthTokenResponse>(`/auth/exchange?code=${encodeURIComponent(code)}`);
+    const response = await api.post<AuthTokenResponse>('/auth/exchange', { code });
     return response.data;
   },
   getGoogleLoginUrl: () => '/api/auth/google/login',

@@ -75,18 +75,14 @@ export default function UploadPage() {
         const resourceTypes = result.resource_types?.join(', ') || 'unknown';
         const resourceCount = result.resource_count || 0;
         
-        // Navigate to chat first
-        navigate('/');
-        
-        // Then send an automatic message with Excel data context
-        // Give navigation time to complete
-        setTimeout(async () => {
-          const { sendMessageWithProgress } = useChatStore.getState();
-          await sendMessageWithProgress(
-            `我已上传了一个 Excel 文件，包含 ${resourceCount} 个资源，类型包括：${resourceTypes}。请验证资源、检查合规性并生成 Terraform 代码。`,
-            result.resources
-          );
-        }, 100);
+        // Pass pending message via navigation state so ChatPage
+        // can reliably send it after mount (no setTimeout race).
+        navigate('/', {
+          state: {
+            pendingMessage: `我已上传了一个 Excel 文件，包含 ${resourceCount} 个资源，类型包括：${resourceTypes}。请验证资源、检查合规性并生成 Terraform 代码。`,
+            pendingResources: result.resources,
+          },
+        });
       } else {
         setError(result.errors ? result.errors.join(', ') : 'Upload failed');
       }

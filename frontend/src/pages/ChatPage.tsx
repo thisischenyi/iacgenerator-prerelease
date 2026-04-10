@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Box, 
   Container, 
@@ -13,6 +14,11 @@ import MessageBubble from '../components/chat/MessageBubble';
 import SessionList from '../components/chat/SessionList';
 import AgentProgressIndicator from '../components/chat/AgentProgressIndicator';
 
+interface PendingLocationState {
+  pendingMessage?: string;
+  pendingResources?: Record<string, unknown>[];
+}
+
 export default function ChatPage() {
   const { 
     isLoading, 
@@ -25,6 +31,8 @@ export default function ChatPage() {
   const agentProgress = useAgentProgress();
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Auto-create first session if none exists
@@ -32,6 +40,18 @@ export default function ChatPage() {
       createNewSession();
     }
   }, [currentSessionId, createNewSession]);
+
+  // Handle pending message from UploadPage navigation state
+  useEffect(() => {
+    const state = location.state as PendingLocationState | null;
+    if (state?.pendingMessage && currentSessionId) {
+      const msg = state.pendingMessage;
+      const res = state.pendingResources;
+      // Clear the navigation state to prevent re-send on remount
+      navigate(location.pathname, { replace: true, state: null });
+      sendMessageWithProgress(msg, res);
+    }
+  }, [location.state, currentSessionId, sendMessageWithProgress, navigate, location.pathname]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -80,7 +100,7 @@ export default function ChatPage() {
             overflowY: 'auto',
             display: 'flex',
             flexDirection: 'column',
-            bgcolor: '#f8f9fa'
+            bgcolor: 'grey.50'
           }}
         >
           {messages.length === 0 ? (

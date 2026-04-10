@@ -65,7 +65,7 @@ class SecurityPolicy(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String(255), nullable=False, index=True)
     description = Column(Text)
     natural_language_rule = Column(Text, nullable=False)
@@ -88,8 +88,8 @@ class LLMConfig(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
-    config_name = Column(String(255), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    config_name= Column(String(255), nullable=False)
     api_endpoint = Column(String(500), nullable=False)
     api_key_encrypted = Column(Text, nullable=False)
     model_name = Column(String(100), nullable=False)
@@ -113,8 +113,8 @@ class Session(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String(100), unique=True, nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
-    conversation_history = Column(JSON, default=list)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    conversation_history= Column(JSON, default=list)
     resource_info = Column(JSON, default=list)
     compliance_results = Column(JSON, default=dict)
     generated_code = Column(JSON, default=dict)
@@ -156,9 +156,9 @@ class DeploymentEnvironment(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String(255), nullable=False, index=True)
-    description = Column(Text)
+    description= Column(Text)
     cloud_platform = Column(SQLEnum(CloudPlatform), nullable=False)
 
     # AWS Credentials (encrypted via Fernet)

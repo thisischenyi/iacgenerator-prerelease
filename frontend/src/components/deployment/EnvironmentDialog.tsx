@@ -3,6 +3,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
   DialogActions,
   Button,
   TextField,
@@ -87,6 +88,7 @@ export default function EnvironmentDialog({
   const [formData, setFormData] = useState<DeploymentEnvironmentCreate>(initialFormState);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -142,12 +144,17 @@ export default function EnvironmentDialog({
   };
 
   const handleDeleteEnvironment = async (id: number) => {
-    if (window.confirm('确定要删除此环境吗？')) {
+    setDeleteConfirmId(id);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deleteConfirmId !== null) {
       try {
-        await deleteEnvironment(id);
+        await deleteEnvironment(deleteConfirmId);
       } catch {
         // Error handled in store
       }
+      setDeleteConfirmId(null);
     }
   };
 
@@ -412,6 +419,23 @@ export default function EnvironmentDialog({
           </Button>
         )}
       </DialogActions>
+
+      {/* Delete confirmation dialog */}
+      <Dialog
+        open={deleteConfirmId !== null}
+        onClose={() => setDeleteConfirmId(null)}
+      >
+        <DialogTitle>确认删除</DialogTitle>
+        <DialogContent>
+          <DialogContentText>确定要删除此环境吗？此操作无法撤销。</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirmId(null)}>取消</Button>
+          <Button onClick={handleConfirmDelete} color="error" variant="contained">
+            删除
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 }

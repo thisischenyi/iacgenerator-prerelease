@@ -123,6 +123,7 @@ export default function SessionList() {
                     <IconButton
                       edge="end"
                       size="small"
+                      aria-label="重命名会话"
                       onClick={(e) => handleRenameClick(session.id, session.title, e)}
                       sx={{ mr: 0.5 }}
                     >
@@ -131,6 +132,7 @@ export default function SessionList() {
                     <IconButton
                       edge="end"
                       size="small"
+                      aria-label="删除会话"
                       onClick={(e) => handleDeleteClick(session.id, e)}
                     >
                       <DeleteIcon fontSize="small" />

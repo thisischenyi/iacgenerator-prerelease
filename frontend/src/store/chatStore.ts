@@ -332,125 +332,131 @@ export const useChatStore = create<ChatState>()(
           const decoder = new TextDecoder();
           let buffer = '';
           
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            
-            buffer += decoder.decode(value, { stream: true });
-            
-            // Parse SSE events from buffer
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';  // Keep incomplete line in buffer
-            
-            // Track event type across lines (SSE format: event: X\ndata: Y\n\n)
-            let currentEventType = '';
-            
-            for (const rawLine of lines) {
-              const line = rawLine.trimEnd();
-              if (!line) {
-                continue;
-              }
-
-              if (line.startsWith('event: ')) {
-                // Capture event type for the next data line
-                currentEventType = line.slice(7).trim();
-                continue;
-              }
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
               
-              if (line.startsWith('data: ')) {
-                const data = line.slice(6).trim();
-                try {
-                  const event = JSON.parse(data);
-                  
-                  // Use captured event type (from 'event:' line) 
-                  const eventType = currentEventType || event.type;
-                  
-                  if (eventType === 'complete') {
-                    // Final response
-                    const assistantMessage: Message = {
-                      id: generateMessageId(),
-                      role: 'assistant',
-                      content: event.message || '',
-                      code_blocks: event.code_blocks,
-                    };
-                    
-                    const currentState = get();
-                    const currentSession = currentState.sessions[currentSessionId!];
-                    
-                    set({
-                      sessions: {
-                        ...currentState.sessions,
-                        [currentSessionId!]: {
-                          ...currentSession,
-                          messages: [...currentSession.messages, assistantMessage],
-                          updatedAt: Date.now(),
-                        },
-                      },
-                      isLoading: false,
-                      agentProgress: {
-                        ...currentState.agentProgress,
-                        currentAgent: null,
-                      },
-                    });
-                  } else if (eventType === 'error') {
-                    set({
-                      error: event.message || 'Unknown error',
-                      isLoading: false,
-                    });
-                  } else if (eventType === 'progress' && event.agent) {
-                    // Progress event - update agent status
-                    const agentType = event.agent as AgentType;
-                    const status = event.status;
-                    
-                    console.log('[SSE] Progress event:', agentType, status);
-                    
-                    set((state) => {
-                      let newCompletedAgents = state.agentProgress.completedAgents;
-                      let newCurrentAgent = state.agentProgress.currentAgent;
-                      let newFailedAgent = state.agentProgress.failedAgent;
+              buffer += decoder.decode(value, { stream: true });
+              
+              // Parse SSE events from buffer
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';  // Keep incomplete line in buffer
+              
+              // Track event type across lines (SSE format: event: X\ndata: Y\n\n)
+              let currentEventType = '';
+              
+              for (const rawLine of lines) {
+                const line = rawLine.trimEnd();
+                if (!line) {
+                  continue;
+                }
 
-                      if (status === 'started') {
-                        // If an agent restarts (e.g., regenerate loop), move it back to active.
-                        newCompletedAgents = newCompletedAgents.filter(
-                          (agent) => agent !== agentType
-                        );
-                        newCurrentAgent = agentType;
-                        newFailedAgent = null;
-                      } else if (status === 'completed') {
-                        // De-duplicate completed agents.
-                        if (!newCompletedAgents.includes(agentType)) {
-                          newCompletedAgents = [...newCompletedAgents, agentType];
-                        }
-                        // Only clear current agent if this completion belongs to the active one.
-                        if (newCurrentAgent === agentType) {
-                          newCurrentAgent = null;
-                        }
-                      } else if (status === 'failed') {
-                        newFailedAgent = agentType;
-                        if (newCurrentAgent === agentType) {
-                          newCurrentAgent = null;
-                        }
-                      }
-                      
-                      return {
-                        agentProgress: {
-                          currentAgent: newCurrentAgent,
-                          completedAgents: newCompletedAgents,
-                          failedAgent: newFailedAgent,
-                          currentMessage: event.message || event.agent_description,
-                        },
+                if (line.startsWith('event: ')) {
+                  // Capture event type for the next data line
+                  currentEventType = line.slice(7).trim();
+                  continue;
+                }
+                
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6).trim();
+                  try {
+                    const event = JSON.parse(data);
+                    
+                    // Use captured event type (from 'event:' line) 
+                    const eventType = currentEventType || event.type;
+                    
+                    if (eventType === 'complete') {
+                      // Final response
+                      const assistantMessage: Message = {
+                        id: generateMessageId(),
+                        role: 'assistant',
+                        content: event.message || '',
+                        code_blocks: event.code_blocks,
                       };
-                    });
+                      
+                      const currentState = get();
+                      const currentSession = currentState.sessions[currentSessionId!];
+                      
+                      set({
+                        sessions: {
+                          ...currentState.sessions,
+                          [currentSessionId!]: {
+                            ...currentSession,
+                            messages: [...currentSession.messages, assistantMessage],
+                            updatedAt: Date.now(),
+                          },
+                        },
+                        isLoading: false,
+                        _abortController: null,
+                        agentProgress: {
+                          ...currentState.agentProgress,
+                          currentAgent: null,
+                        },
+                      });
+                    } else if (eventType === 'error') {
+                      set({
+                        error: event.message || 'Unknown error',
+                        isLoading: false,
+                        _abortController: null,
+                      });
+                    } else if (eventType === 'progress' && event.agent) {
+                      // Progress event - update agent status
+                      const agentType = event.agent as AgentType;
+                      const status = event.status;
+                      
+                      set((state) => {
+                        let newCompletedAgents = state.agentProgress.completedAgents;
+                        let newCurrentAgent = state.agentProgress.currentAgent;
+                        let newFailedAgent = state.agentProgress.failedAgent;
+
+                        if (status === 'started') {
+                          // If an agent restarts (e.g., regenerate loop), move it back to active.
+                          newCompletedAgents = newCompletedAgents.filter(
+                            (agent) => agent !== agentType
+                          );
+                          newCurrentAgent = agentType;
+                          newFailedAgent = null;
+                        } else if (status === 'completed') {
+                          // De-duplicate completed agents.
+                          if (!newCompletedAgents.includes(agentType)) {
+                            newCompletedAgents = [...newCompletedAgents, agentType];
+                          }
+                          // Only clear current agent if this completion belongs to the active one.
+                          if (newCurrentAgent === agentType) {
+                            newCurrentAgent = null;
+                          }
+                        } else if (status === 'failed') {
+                          newFailedAgent = agentType;
+                          if (newCurrentAgent === agentType) {
+                            newCurrentAgent = null;
+                          }
+                        }
+                        
+                        return {
+                          agentProgress: {
+                            currentAgent: newCurrentAgent,
+                            completedAgents: newCompletedAgents,
+                            failedAgent: newFailedAgent,
+                            currentMessage: event.message || event.agent_description,
+                          },
+                        };
+                      });
+                    }
+                    
+                    // Reset event type after processing
+                    currentEventType = '';
+                  } catch (parseError) {
+                    console.warn('Failed to parse SSE event:', data, parseError);
                   }
-                  
-                  // Reset event type after processing
-                  currentEventType = '';
-                } catch (parseError) {
-                  console.warn('Failed to parse SSE event:', data, parseError);
                 }
               }
             }
+          } finally {
+            reader.releaseLock();
           }
+          // Clear abort controller after successful stream completion
+          set((state) => (state._abortController ? { _abortController: null } : {}));
         } catch (error) {
           if (error instanceof DOMException && error.name === 'AbortError') {
             set({ isLoading: false, _abortController: null });

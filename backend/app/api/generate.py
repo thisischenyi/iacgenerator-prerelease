@@ -14,7 +14,11 @@ from app.services.terraform_generator import TerraformCodeGenerator
 from app.services.file_utils import FileUtilsService
 
 router = APIRouter()
-file_utils = FileUtilsService()
+
+
+def _user_file_utils(user_id: int) -> FileUtilsService:
+    """Return a FileUtilsService scoped to the user's output directory."""
+    return FileUtilsService(output_dir=os.path.join("generated_code", str(user_id)))
 
 
 @router.get("/download/{filename}")
@@ -32,9 +36,10 @@ async def download_file(
     Returns:
         FileResponse with the ZIP file
     """
+    user_utils = _user_file_utils(current_user.id)
     # Sanitize filename to prevent directory traversal
     filename = os.path.basename(filename)
-    file_path = os.path.join(file_utils.output_dir, filename)
+    file_path = os.path.join(user_utils.output_dir, filename)
 
     if not os.path.exists(file_path):
         raise HTTPException(
@@ -96,13 +101,14 @@ async def generate_code(
         # Generate Terraform code
         generated_files = generator.generate_code(resources_dict)
 
-        # Create ZIP file
-        zip_bytes, zip_filename = file_utils.create_zip_from_files(generated_files)
-        file_utils.save_zip_to_disk(zip_bytes, zip_filename)
+        # Create ZIP file in user-scoped directory
+        user_utils = _user_file_utils(current_user.id)
+        zip_bytes, zip_filename = user_utils.create_zip_from_files(generated_files)
+        user_utils.save_zip_to_disk(zip_bytes, zip_filename)
 
         # Clean up old files occasionally
         try:
-            file_utils.cleanup_old_files()
+            user_utils.cleanup_old_files()
         except Exception:
             pass
 

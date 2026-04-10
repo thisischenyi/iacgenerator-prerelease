@@ -1,8 +1,9 @@
 """Security policy management API routes."""
 
 import json
+import logging
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -17,12 +18,13 @@ from app.schemas import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("", response_model=List[SecurityPolicyResponse])
 def list_policies(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=200),
     enabled_only: bool = False,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -71,9 +73,18 @@ def _convert_rule_to_executable(db: Session, natural_language_rule: str) -> dict
                 response = response[4:].strip()
 
         return json.loads(response)
+    except json.JSONDecodeError as e:
+        logger.warning(f"LLM returned invalid JSON for rule conversion: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Failed to parse policy rule into executable format: {e}",
+        )
     except Exception as e:
-        print(f"Error converting rule: {e}")
-        return {}
+        logger.error(f"Error converting rule to executable: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to convert policy rule: {e}",
+        )
 
 
 @router.post(

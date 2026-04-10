@@ -4,7 +4,7 @@ import base64
 import hashlib
 import logging
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -47,8 +47,8 @@ def decrypt_api_key(encrypted_key: str) -> str:
 
 @router.get("", response_model=List[LLMConfigResponse])
 def list_llm_configs(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=200),
     active_only: bool = False,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

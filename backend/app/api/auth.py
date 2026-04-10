@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session as DBSession
 
 from app.core.config import get_settings
@@ -100,7 +101,16 @@ def _upsert_oauth_user(
     full_name: str | None,
     avatar_url: str | None,
 ) -> User:
-    """Create or update OAuth user from provider profile."""
+    """Create or update OAuth user from provider profile.
+
+    Matching priority:
+    1. Exact (provider, provider_user_id) match → update profile fields.
+    2. Email match → only auto-link if existing account is also an OAuth account
+       (has a provider set). Local-password accounts are NOT auto-linked to
+       prevent account takeover.
+    3. No match → create a new user.
+    """
+    # 1. Exact provider match
     user = (
         db.query(User)
         .filter(
@@ -111,9 +121,23 @@ def _upsert_oauth_user(
     )
 
     if not user:
-        user = db.query(User).filter(User.email == email).first()
+        # 2. Email-based lookup
+        existing = db.query(User).filter(User.email == email).first()
+        if existing:
+            if existing.provider and existing.provider_user_id:
+                # Existing OAuth account with different provider — safe to link
+                user = existing
+            else:
+                # Local-password account — refuse auto-link to prevent takeover
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="An account with this email already exists. "
+                    "Please log in with your password first, then link "
+                    "your OAuth account from settings.",
+                )
 
     if not user:
+        # 3. Create new user
         user = User(
             email=email,
             full_name=full_name,
@@ -415,14 +439,20 @@ def microsoft_callback(
     return RedirectResponse(url=redirect_url)
 
 
+class _CodeExchangeRequest(BaseModel):
+    """Request body for one-time code exchange."""
+
+    code: str
+
+
 @router.post("/exchange", response_model=AuthTokenResponse)
 def exchange_code(
-    code: str = Query(..., description="One-time authorization code from OAuth callback"),
+    body: _CodeExchangeRequest,
     db: DBSession = Depends(get_db),
 ):
     """Exchange a one-time OAuth code for a JWT access token."""
     _cleanup_expired_codes()
-    entry = _auth_codes.pop(code, None)
+    entry = _auth_codes.pop(body.code, None)
     if not entry:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

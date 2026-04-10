@@ -2,7 +2,7 @@
 
 import logging
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -48,8 +48,8 @@ def _decrypt_optional(value: Optional[str]) -> Optional[str]:
 
 @router.get("/environments", response_model=List[DeploymentEnvironmentResponse])
 def list_environments(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=200),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -354,16 +354,19 @@ def create_and_plan(
         f"[DEPLOY] Terraform files received: {list(request.terraform_code.keys())}"
     )
 
-    # Verify environment exists
+    # Verify environment exists and belongs to current user
     environment = (
         db.query(DeploymentEnvironment)
-        .filter(DeploymentEnvironment.id == request.environment_id)
+        .filter(
+            DeploymentEnvironment.id == request.environment_id,
+            DeploymentEnvironment.user_id == current_user.id,
+        )
         .first()
     )
     if not environment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Environment with id {request.environment_id} not found",
+            detail="Environment not found or access denied",
         )
 
     # Verify session belongs to current user
@@ -490,13 +493,13 @@ def apply_deployment(
                 detail="You do not have permission to apply this deployment",
             )
 
-        print(
-            f"[API: Deploy] Apply deployment request received: deployment_id={request.deployment_id}"
+        logger.info(
+            f"[DEPLOY] Apply deployment request received: deployment_id={request.deployment_id}"
         )
         executor = TerraformExecutor(db)
         deployment = executor.run_apply(request.deployment_id)
-        print(
-            f"[API: Deploy] Deployment apply completed: status={deployment.status}, deployment_id={request.deployment_id}"
+        logger.info(
+            f"[DEPLOY] Deployment apply completed: status={deployment.status}, deployment_id={request.deployment_id}"
         )
 
         return DeploymentApplyResponse(
@@ -584,8 +587,8 @@ def get_deployment(
 @router.get("", response_model=List[DeploymentResponse])
 def list_deployments(
     session_id: str = None,
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

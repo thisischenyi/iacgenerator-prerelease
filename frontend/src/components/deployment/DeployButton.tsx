@@ -162,36 +162,28 @@ export default function DeployButton({ codeBlocks }: DeployButtonProps) {
     clearDeployment();
   };
 
-  const getButtonContent = () => {
+  const getButtonIcon = () => {
     switch (phase) {
       case 'planning':
-        return (
-          <>
-            <CircularProgress size={16} sx={{ mr: 1 }} />
-            正在生成 Plan...
-          </>
-        );
       case 'applying':
-        return (
-          <>
-            <CircularProgress size={16} sx={{ mr: 1 }} />
-            正在部署...
-          </>
-        );
+        return <CircularProgress size={16} />;
       case 'complete':
-        return (
-          <>
-            <SuccessIcon sx={{ mr: 1 }} />
-            部署完成
-          </>
-        );
+        return <SuccessIcon />;
       default:
-        return (
-          <>
-            <DeployIcon sx={{ mr: 1 }} />
-            部署到云环境
-          </>
-        );
+        return <DeployIcon />;
+    }
+  };
+
+  const getButtonLabel = () => {
+    switch (phase) {
+      case 'planning':
+        return '正在生成 Plan...';
+      case 'applying':
+        return '正在部署...';
+      case 'complete':
+        return '部署完成';
+      default:
+        return '部署到云环境';
     }
   };
 
@@ -217,13 +209,13 @@ export default function DeployButton({ codeBlocks }: DeployButtonProps) {
         color="success"
         onClick={handleDeployClick}
         disabled={phase === 'planning' || phase === 'applying'}
-        startIcon={getButtonContent()}
+        startIcon={getButtonIcon()}
         sx={{
           textTransform: 'none',
           fontWeight: 500,
         }}
       >
-        {phase === 'idle' && '部署到云环境'}
+        {getButtonLabel()}
       </Button>
 
       {phase === 'complete' && (
