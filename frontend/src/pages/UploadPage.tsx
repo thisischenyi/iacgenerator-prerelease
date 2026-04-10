@@ -74,12 +74,15 @@ export default function UploadPage() {
         // Prepare a summary message for the chat
         const resourceTypes = result.resource_types?.join(', ') || 'unknown';
         const resourceCount = result.resource_count || 0;
+        const pendingMessage =
+          `我已上传了一个 Excel 文件，包含 ${resourceCount} 个资源，类型包括：${resourceTypes}。请验证资源、检查合规性并生成 Terraform 代码。`;
         
         // Pass pending message via navigation state so ChatPage
         // can reliably send it after mount (no setTimeout race).
         navigate('/', {
           state: {
-            pendingMessage: `我已上传了一个 Excel 文件，包含 ${resourceCount} 个资源，类型包括：${resourceTypes}。请验证资源、检查合规性并生成 Terraform 代码。`,
+            pendingMessage,
+            pendingMessageToken: crypto.randomUUID(),
             pendingResources: result.resources,
           },
         });

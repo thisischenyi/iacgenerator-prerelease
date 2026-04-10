@@ -14,9 +14,12 @@ import MessageBubble from '../components/chat/MessageBubble';
 import SessionList from '../components/chat/SessionList';
 import AgentProgressIndicator from '../components/chat/AgentProgressIndicator';
 
+const consumedPendingMessageTokens = new Set<string>();
+
 interface PendingLocationState {
   pendingMessage?: string;
   pendingResources?: Record<string, unknown>[];
+  pendingMessageToken?: string;
 }
 
 export default function ChatPage() {
@@ -44,12 +47,16 @@ export default function ChatPage() {
   // Handle pending message from UploadPage navigation state
   useEffect(() => {
     const state = location.state as PendingLocationState | null;
-    if (state?.pendingMessage && currentSessionId) {
+    if (state?.pendingMessage && state.pendingMessageToken && currentSessionId) {
+      if (consumedPendingMessageTokens.has(state.pendingMessageToken)) {
+        return;
+      }
+      consumedPendingMessageTokens.add(state.pendingMessageToken);
       const msg = state.pendingMessage;
       const res = state.pendingResources;
       // Clear the navigation state to prevent re-send on remount
       navigate(location.pathname, { replace: true, state: null });
-      sendMessageWithProgress(msg, res);
+      void sendMessageWithProgress(msg, res);
     }
   }, [location.state, currentSessionId, sendMessageWithProgress, navigate, location.pathname]);
 
