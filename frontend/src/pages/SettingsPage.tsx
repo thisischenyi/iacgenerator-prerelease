@@ -22,6 +22,9 @@ export default function SettingsPage() {
     model_name: 'gpt-4',
     temperature: 0.7,
     max_tokens: 4000,
+    top_p: 1.0,
+    frequency_penalty: 0,
+    presence_penalty: 0,
     is_active: true
   });
   const [loading, setLoading] = useState(false);

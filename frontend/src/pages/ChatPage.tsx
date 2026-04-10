@@ -97,7 +97,7 @@ export default function ChatPage() {
             </Box>
           ) : (
             messages.map((msg, index) => (
-              <MessageBubble key={index} message={msg} />
+              <MessageBubble key={msg.id ?? `msg-${index}`} message={msg} />
             ))
           )}
           

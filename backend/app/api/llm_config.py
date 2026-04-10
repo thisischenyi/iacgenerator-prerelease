@@ -262,7 +262,7 @@ async def test_llm_connection(
     db: Session = Depends(get_db),
 ):
     """
-    Test LLM configuration connection.
+    Test LLM configuration connection by making a minimal API call.
 
     Args:
         config_id: Configuration ID
@@ -282,19 +282,36 @@ async def test_llm_connection(
             detail=f"LLM configuration with id {config_id} not found",
         )
 
-    # TODO: Implement actual LLM connection test
-    # This is a placeholder for now
-    # In production, you would:
-    # 1. Decrypt the API key
-    # 2. Make a test API call to the LLM endpoint
-    # 3. Return success/failure based on response
+    api_key = decrypt_api_key(config.api_key_encrypted)
+
+    try:
+        from openai import OpenAI
+
+        client = OpenAI(api_key=api_key, base_url=config.api_endpoint)
+        response = client.chat.completions.create(
+            model=config.model_name,
+            messages=[{"role": "user", "content": "hi"}],
+            max_tokens=5,
+        )
+        model_used = response.model or config.model_name
+    except Exception as e:
+        logger.error("LLM connection test failed for config %s: %s", config_id, e)
+        return SuccessResponse(
+            success=False,
+            message=f"Connection test failed: {e}",
+            data={
+                "endpoint": config.api_endpoint,
+                "model": config.model_name,
+                "status": "failed",
+            },
+        )
 
     return SuccessResponse(
         success=True,
         message=f"Connection test for '{config.config_name}' completed successfully",
         data={
             "endpoint": config.api_endpoint,
-            "model": config.model_name,
+            "model": model_used,
             "status": "connected",
         },
     )

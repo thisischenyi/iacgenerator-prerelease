@@ -9,10 +9,11 @@ interface AuthState {
   loading: boolean;
   error: string | null;
   isAuthenticated: boolean;
+  isInitialized: boolean;
   initializeAuth: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, fullName?: string) => Promise<void>;
-  setTokenFromOAuth: (token: string) => Promise<void>;
+  setTokenFromOAuth: (code: string) => Promise<void>;
   logout: () => void;
   clearError: () => void;
 }
@@ -53,11 +54,13 @@ export const useAuthStore = create<AuthState>()(
       loading: false,
       error: null,
       isAuthenticated: false,
+      isInitialized: false,
 
       initializeAuth: async () => {
         const { accessToken } = get();
         if (!accessToken) {
           useChatStore.getState().setAuthUser(null);
+          set({ isInitialized: true });
           return;
         }
         setApiToken(accessToken);
@@ -65,11 +68,11 @@ export const useAuthStore = create<AuthState>()(
           const me = await authService.me();
           useChatStore.getState().setAuthUser(me.id);
           await useChatStore.getState().syncSessionsFromServer();
-          set({ user: me, isAuthenticated: true });
+          set({ user: me, isAuthenticated: true, isInitialized: true });
         } catch {
           setApiToken(null);
           useChatStore.getState().setAuthUser(null);
-          set({ accessToken: null, user: null, isAuthenticated: false });
+          set({ accessToken: null, user: null, isAuthenticated: false, isInitialized: true });
         }
       },
 
@@ -121,9 +124,12 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      setTokenFromOAuth: async (token: string) => {
+      setTokenFromOAuth: async (code: string) => {
         set({ loading: true, error: null });
         try {
+          // Exchange one-time code for JWT via backend
+          const exchangeResp = await authService.exchangeCode(code);
+          const token = exchangeResp.access_token;
           setApiToken(token);
           const me = await authService.me();
           useChatStore.getState().setAuthUser(me.id);
@@ -164,13 +170,17 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'iac-auth-storage',
       partialize: (state) => ({
-        accessToken: state.accessToken,
+        // Do NOT persist accessToken to localStorage to reduce XSS risk.
+        // Token is kept in memory; user must re-login after closing the tab.
         user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
       onRehydrateStorage: () => (state) => {
-        if (state?.accessToken) {
-          setApiToken(state.accessToken);
+        // On rehydrate, there is no accessToken in storage anymore.
+        // The user will need to re-authenticate via initializeAuth.
+        if (state) {
+          state.accessToken = null;
+          state.isAuthenticated = false;
         }
       },
     }

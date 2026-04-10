@@ -33,16 +33,25 @@ export default function SessionList() {
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
 
   const handleNewSession = async () => {
     await createNewSession();
   };
 
-  const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
+  const handleDeleteClick = (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm('Are you sure you want to delete this session?')) {
-      await deleteSession(sessionId);
+    setDeletingSessionId(sessionId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (deletingSessionId) {
+      await deleteSession(deletingSessionId);
     }
+    setDeleteDialogOpen(false);
+    setDeletingSessionId(null);
   };
 
   const handleRenameClick = (sessionId: string, currentTitle: string, e: React.MouseEvent) => {
@@ -122,7 +131,7 @@ export default function SessionList() {
                     <IconButton
                       edge="end"
                       size="small"
-                      onClick={(e) => { void handleDeleteSession(session.id, e); }}
+                      onClick={(e) => handleDeleteClick(session.id, e)}
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
@@ -172,7 +181,7 @@ export default function SessionList() {
             variant="outlined"
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
-            onKeyPress={(e) => {
+            onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 handleRenameSubmit();
               }
@@ -183,6 +192,20 @@ export default function SessionList() {
           <Button onClick={() => setRenameDialogOpen(false)}>取消</Button>
           <Button onClick={handleRenameSubmit} variant="contained">
             确定
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogTitle>删除会话</DialogTitle>
+        <DialogContent>
+          <Typography>确定要删除此会话吗？此操作不可撤销。</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>取消</Button>
+          <Button onClick={() => { void handleDeleteConfirm(); }} variant="contained" color="error">
+            删除
           </Button>
         </DialogActions>
       </Dialog>

@@ -11,12 +11,13 @@ export default function AuthCallbackPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = params.get('token');
-    if (!token) {
+    const code = params.get('code');
+    if (!code) {
       navigate('/login', { replace: true });
       return;
     }
-    setTokenFromOAuth(token)
+    // Exchange the one-time code for a JWT via a protected POST endpoint
+    setTokenFromOAuth(code)
       .then(() => navigate('/', { replace: true }))
       .catch(() => setLoading(false));
   }, [navigate, params, setTokenFromOAuth]);

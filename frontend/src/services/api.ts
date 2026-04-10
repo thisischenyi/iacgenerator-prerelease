@@ -100,6 +100,10 @@ export const authService = {
     const response = await api.get<AuthUser>('/auth/me');
     return response.data;
   },
+  exchangeCode: async (code: string) => {
+    const response = await api.post<AuthTokenResponse>(`/auth/exchange?code=${encodeURIComponent(code)}`);
+    return response.data;
+  },
   getGoogleLoginUrl: () => '/api/auth/google/login',
   getMicrosoftLoginUrl: () => '/api/auth/microsoft/login',
 };

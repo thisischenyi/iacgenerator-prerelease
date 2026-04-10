@@ -1,7 +1,9 @@
 """Authentication API routes."""
 
+import logging
+import secrets
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from urllib.parse import urlencode
 
 import httpx
@@ -27,6 +29,58 @@ from app.schemas import (
 
 router = APIRouter()
 settings = get_settings()
+logger = logging.getLogger(__name__)
+
+# In-memory stores with TTL for OAuth state and one-time codes.
+# Production should use Redis or DB-backed storage.
+_oauth_states: dict[str, datetime] = {}
+_auth_codes: dict[str, tuple[int, datetime]] = {}  # code -> (user_id, expires_at)
+
+_STATE_TTL = timedelta(minutes=10)
+_CODE_TTL = timedelta(minutes=2)
+
+
+def _store_oauth_state(state: str) -> None:
+    """Store an OAuth state value with expiration."""
+    _cleanup_expired_states()
+    _oauth_states[state] = datetime.now(timezone.utc) + _STATE_TTL
+
+
+def _validate_oauth_state(state: str | None) -> None:
+    """Validate and consume an OAuth state value."""
+    if not state or state not in _oauth_states:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OAuth state parameter",
+        )
+    expires = _oauth_states.pop(state)
+    if datetime.now(timezone.utc) > expires:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OAuth state has expired",
+        )
+
+
+def _create_auth_code(user_id: int) -> str:
+    """Create a one-time auth code that can be exchanged for a JWT."""
+    _cleanup_expired_codes()
+    code = secrets.token_urlsafe(48)
+    _auth_codes[code] = (user_id, datetime.now(timezone.utc) + _CODE_TTL)
+    return code
+
+
+def _cleanup_expired_states() -> None:
+    now = datetime.now(timezone.utc)
+    expired = [k for k, v in _oauth_states.items() if now > v]
+    for k in expired:
+        _oauth_states.pop(k, None)
+
+
+def _cleanup_expired_codes() -> None:
+    now = datetime.now(timezone.utc)
+    expired = [k for k, v in _auth_codes.items() if now > v[1]]
+    for k in expired:
+        _auth_codes.pop(k, None)
 
 
 def _create_auth_response(user: User) -> AuthTokenResponse:
@@ -154,12 +208,15 @@ def google_login():
             detail="Google OAuth is not configured",
         )
 
+    state = str(uuid.uuid4())
+    _store_oauth_state(state)
+
     params = {
         "client_id": settings.GOOGLE_CLIENT_ID,
         "redirect_uri": settings.GOOGLE_REDIRECT_URI,
         "response_type": "code",
         "scope": "openid email profile",
-        "state": str(uuid.uuid4()),
+        "state": state,
         "access_type": "online",
         "prompt": "consent",
     }
@@ -171,20 +228,31 @@ def google_login():
 @router.get("/google/callback")
 def google_callback(
     code: str = Query(...),
+    state: str = Query(...),
     db: DBSession = Depends(get_db),
 ):
     """Handle Google OAuth callback."""
-    token_resp = httpx.post(
-        "https://oauth2.googleapis.com/token",
-        data={
-            "client_id": settings.GOOGLE_CLIENT_ID,
-            "client_secret": settings.GOOGLE_CLIENT_SECRET,
-            "code": code,
-            "grant_type": "authorization_code",
-            "redirect_uri": settings.GOOGLE_REDIRECT_URI,
-        },
-        timeout=20,
-    )
+    _validate_oauth_state(state)
+
+    try:
+        token_resp = httpx.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": settings.GOOGLE_CLIENT_ID,
+                "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+            },
+            timeout=20,
+        )
+    except httpx.HTTPError as e:
+        logger.error("Google token exchange failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to connect to Google authentication service",
+        )
+
     if token_resp.status_code >= 400:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -192,11 +260,20 @@ def google_callback(
         )
 
     access_token = token_resp.json().get("access_token")
-    userinfo_resp = httpx.get(
-        "https://openidconnect.googleapis.com/v1/userinfo",
-        headers={"Authorization": f"Bearer {access_token}"},
-        timeout=20,
-    )
+
+    try:
+        userinfo_resp = httpx.get(
+            "https://openidconnect.googleapis.com/v1/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=20,
+        )
+    except httpx.HTTPError as e:
+        logger.error("Google userinfo fetch failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch Google user profile",
+        )
+
     if userinfo_resp.status_code >= 400:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -220,8 +297,8 @@ def google_callback(
         full_name=profile.get("name"),
         avatar_url=profile.get("picture"),
     )
-    token = create_access_token(str(user.id))
-    redirect_url = f"{settings.FRONTEND_URL}/auth/callback?token={token}"
+    auth_code = _create_auth_code(user.id)
+    redirect_url = f"{settings.FRONTEND_URL}/auth/callback?code={auth_code}"
     return RedirectResponse(url=redirect_url)
 
 
@@ -234,6 +311,9 @@ def microsoft_login():
             detail="Microsoft OAuth is not configured",
         )
 
+    state = str(uuid.uuid4())
+    _store_oauth_state(state)
+
     tenant = settings.MICROSOFT_TENANT_ID or "common"
     params = {
         "client_id": settings.MICROSOFT_CLIENT_ID,
@@ -241,7 +321,7 @@ def microsoft_login():
         "redirect_uri": settings.MICROSOFT_REDIRECT_URI,
         "response_mode": "query",
         "scope": "openid profile email",
-        "state": str(uuid.uuid4()),
+        "state": state,
     }
     auth_url = (
         f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize?"
@@ -253,23 +333,35 @@ def microsoft_login():
 @router.get("/microsoft/callback")
 def microsoft_callback(
     code: str = Query(...),
+    state: str = Query(...),
     db: DBSession = Depends(get_db),
 ):
     """Handle Microsoft OAuth callback."""
+    _validate_oauth_state(state)
+
     tenant = settings.MICROSOFT_TENANT_ID or "common"
     token_url = f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
-    token_resp = httpx.post(
-        token_url,
-        data={
-            "client_id": settings.MICROSOFT_CLIENT_ID,
-            "client_secret": settings.MICROSOFT_CLIENT_SECRET,
-            "code": code,
-            "grant_type": "authorization_code",
-            "redirect_uri": settings.MICROSOFT_REDIRECT_URI,
-            "scope": "openid profile email",
-        },
-        timeout=20,
-    )
+
+    try:
+        token_resp = httpx.post(
+            token_url,
+            data={
+                "client_id": settings.MICROSOFT_CLIENT_ID,
+                "client_secret": settings.MICROSOFT_CLIENT_SECRET,
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": settings.MICROSOFT_REDIRECT_URI,
+                "scope": "openid profile email",
+            },
+            timeout=20,
+        )
+    except httpx.HTTPError as e:
+        logger.error("Microsoft token exchange failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to connect to Microsoft authentication service",
+        )
+
     if token_resp.status_code >= 400:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -277,11 +369,20 @@ def microsoft_callback(
         )
 
     access_token = token_resp.json().get("access_token")
-    userinfo_resp = httpx.get(
-        "https://graph.microsoft.com/oidc/userinfo",
-        headers={"Authorization": f"Bearer {access_token}"},
-        timeout=20,
-    )
+
+    try:
+        userinfo_resp = httpx.get(
+            "https://graph.microsoft.com/oidc/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=20,
+        )
+    except httpx.HTTPError as e:
+        logger.error("Microsoft userinfo fetch failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch Microsoft user profile",
+        )
+
     if userinfo_resp.status_code >= 400:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -309,6 +410,34 @@ def microsoft_callback(
         full_name=profile.get("name"),
         avatar_url=None,
     )
-    token = create_access_token(str(user.id))
-    redirect_url = f"{settings.FRONTEND_URL}/auth/callback?token={token}"
+    auth_code = _create_auth_code(user.id)
+    redirect_url = f"{settings.FRONTEND_URL}/auth/callback?code={auth_code}"
     return RedirectResponse(url=redirect_url)
+
+
+@router.post("/exchange", response_model=AuthTokenResponse)
+def exchange_code(
+    code: str = Query(..., description="One-time authorization code from OAuth callback"),
+    db: DBSession = Depends(get_db),
+):
+    """Exchange a one-time OAuth code for a JWT access token."""
+    _cleanup_expired_codes()
+    entry = _auth_codes.pop(code, None)
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired authorization code",
+        )
+    user_id, expires_at = entry
+    if datetime.now(timezone.utc) > expires_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Authorization code has expired",
+        )
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    return _create_auth_response(user)

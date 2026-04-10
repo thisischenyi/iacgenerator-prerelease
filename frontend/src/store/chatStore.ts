@@ -4,6 +4,7 @@ import { chatService, getApiToken } from '../services/api';
 import type { AgentType } from '../components/chat/AgentProgressIndicator';
 
 interface Message {
+  id: string;
   role: 'user' | 'assistant';
   content: string;
   code_blocks?: Array<{
@@ -11,6 +12,11 @@ interface Message {
     content: string;
     language: string;
   }>;
+}
+
+let messageCounter = 0;
+function generateMessageId(): string {
+  return `msg-${Date.now()}-${++messageCounter}`;
 }
 
 interface Session {
@@ -40,6 +46,10 @@ interface ChatState {
   
   // Agent progress tracking
   agentProgress: AgentProgressState;
+  
+  // SSE stream abort
+  _abortController: AbortController | null;
+  cancelStream: () => void;
   
   // Session management
   createNewSession: () => Promise<void>;
@@ -73,6 +83,15 @@ export const useChatStore = create<ChatState>()(
         completedAgents: [],
         failedAgent: null,
       },
+      _abortController: null,
+      
+      cancelStream: () => {
+        const { _abortController } = get();
+        if (_abortController) {
+          _abortController.abort();
+          set({ _abortController: null, isLoading: false });
+        }
+      },
       
       resetProgress: () => {
         set({
@@ -104,10 +123,6 @@ export const useChatStore = create<ChatState>()(
             currentSessionId: sessionId,
             isLoading: false,
           }));
-
-          // Re-sync with backend to ensure local state matches persisted state.
-          await get().syncSessionsFromServer();
-          set({ currentSessionId: sessionId });
         } catch (error) {
           console.error('Failed to create session:', error);
           set({ error: 'Failed to create session', isLoading: false });
@@ -186,7 +201,7 @@ export const useChatStore = create<ChatState>()(
         }
         
         // Add user message immediately
-        const userMessage: Message = { role: 'user', content };
+        const userMessage: Message = { id: generateMessageId(), role: 'user', content };
         const updatedMessages = [...session.messages, userMessage];
         
         set({
@@ -213,6 +228,7 @@ export const useChatStore = create<ChatState>()(
           });
           
           const assistantMessage: Message = {
+            id: generateMessageId(),
             role: 'assistant',
             content: response.message,
             code_blocks: response.code_blocks,
@@ -261,8 +277,7 @@ export const useChatStore = create<ChatState>()(
           return;
         }
         
-        // Add user message immediately
-        const userMessage: Message = { role: 'user', content };
+        const userMessage: Message = { id: generateMessageId(), role: 'user', content };
         const updatedMessages = [...session.messages, userMessage];
         
         // Reset progress and start loading
@@ -285,7 +300,6 @@ export const useChatStore = create<ChatState>()(
         });
         
         try {
-          // Prepare request body
           const requestBody = {
             session_id: currentSessionId,
             message: content,
@@ -293,7 +307,9 @@ export const useChatStore = create<ChatState>()(
           };
           const token = getApiToken();
           
-          // Use SSE streaming endpoint
+          const abortController = new AbortController();
+          set({ _abortController: abortController });
+          
           const response = await fetch('/api/chat/stream', {
             method: 'POST',
             headers: {
@@ -301,6 +317,7 @@ export const useChatStore = create<ChatState>()(
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
             body: JSON.stringify(requestBody),
+            signal: abortController.signal,
           });
           
           if (!response.ok) {
@@ -351,6 +368,7 @@ export const useChatStore = create<ChatState>()(
                   if (eventType === 'complete') {
                     // Final response
                     const assistantMessage: Message = {
+                      id: generateMessageId(),
                       role: 'assistant',
                       content: event.message || '',
                       code_blocks: event.code_blocks,
@@ -434,15 +452,17 @@ export const useChatStore = create<ChatState>()(
             }
           }
         } catch (error) {
+          if (error instanceof DOMException && error.name === 'AbortError') {
+            set({ isLoading: false, _abortController: null });
+            return;
+          }
           console.error('SendMessageWithProgress Error:', error);
-          // Avoid re-sending the same message automatically if stream already started,
-          // otherwise backend may execute workflow twice and persist duplicated history.
           try {
             await get().syncSessionsFromServer();
           } catch {
             // Ignore secondary sync error; keep primary error message below.
           }
-          set({ error: 'Failed to stream progress. Session has been synced from server.', isLoading: false });
+          set({ error: 'Failed to stream progress. Session has been synced from server.', isLoading: false, _abortController: null });
         }
       },
       
@@ -487,6 +507,7 @@ export const useChatStore = create<ChatState>()(
             const created = new Date(item.created_at).getTime() || Date.now();
             const rawMessages: Message[] = (item.conversation_history || [])
               .map((msg: { role?: string; content?: string; code_blocks?: Message['code_blocks'] }) => ({
+                id: generateMessageId(),
                 role: (msg.role === 'assistant' ? 'assistant' : 'user') as Message['role'],
                 content: msg.content || '',
                 code_blocks: msg.code_blocks,
@@ -532,6 +553,7 @@ export const useChatStore = create<ChatState>()(
               }
               if (!attached) {
                 messages.push({
+                  id: generateMessageId(),
                   role: 'assistant',
                   content: 'Terraform code has been generated.',
                   code_blocks: generatedBlocks,

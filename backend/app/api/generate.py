@@ -18,12 +18,16 @@ file_utils = FileUtilsService()
 
 
 @router.get("/download/{filename}")
-async def download_file(filename: str):
+async def download_file(
+    filename: str,
+    current_user: User = Depends(get_current_user),
+):
     """
     Download a generated ZIP file.
 
     Args:
         filename: Name of the file to download
+        current_user: Authenticated user
 
     Returns:
         FileResponse with the ZIP file

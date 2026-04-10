@@ -122,25 +122,26 @@ class TerraformExecutor:
         """
         env = os.environ.copy()
 
+        from app.api.llm_config import decrypt_api_key
+
         if environment.cloud_platform.value == "aws":
             if environment.aws_access_key_id:
-                env["AWS_ACCESS_KEY_ID"] = environment.aws_access_key_id
+                env["AWS_ACCESS_KEY_ID"] = decrypt_api_key(environment.aws_access_key_id)
             if environment.aws_secret_access_key:
-                env["AWS_SECRET_ACCESS_KEY"] = environment.aws_secret_access_key
+                env["AWS_SECRET_ACCESS_KEY"] = decrypt_api_key(environment.aws_secret_access_key)
             if environment.aws_region:
                 env["AWS_DEFAULT_REGION"] = environment.aws_region
 
         elif environment.cloud_platform.value == "azure":
             if environment.azure_subscription_id:
-                env["ARM_SUBSCRIPTION_ID"] = environment.azure_subscription_id
-                # Also set as TF_VAR for the provider configuration
-                env["TF_VAR_azure_subscription_id"] = environment.azure_subscription_id
+                env["ARM_SUBSCRIPTION_ID"] = decrypt_api_key(environment.azure_subscription_id)
+                env["TF_VAR_azure_subscription_id"] = decrypt_api_key(environment.azure_subscription_id)
             if environment.azure_tenant_id:
-                env["ARM_TENANT_ID"] = environment.azure_tenant_id
+                env["ARM_TENANT_ID"] = decrypt_api_key(environment.azure_tenant_id)
             if environment.azure_client_id:
-                env["ARM_CLIENT_ID"] = environment.azure_client_id
+                env["ARM_CLIENT_ID"] = decrypt_api_key(environment.azure_client_id)
             if environment.azure_client_secret:
-                env["ARM_CLIENT_SECRET"] = environment.azure_client_secret
+                env["ARM_CLIENT_SECRET"] = decrypt_api_key(environment.azure_client_secret)
 
         return env
 

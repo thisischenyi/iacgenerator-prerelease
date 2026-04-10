@@ -1,12 +1,13 @@
 """Deployment environment and terraform deployment API routes."""
 
 import logging
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.api.llm_config import encrypt_api_key, decrypt_api_key
 from app.models import (
     DeploymentEnvironment,
     Deployment,
@@ -29,6 +30,17 @@ from app.schemas import (
 from app.services.terraform_executor import TerraformExecutor
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+def _encrypt_optional(value: Optional[str]) -> Optional[str]:
+    """Encrypt a value if it is not None/empty."""
+    return encrypt_api_key(value) if value else value
+
+
+def _decrypt_optional(value: Optional[str]) -> Optional[str]:
+    """Decrypt a value if it is not None/empty."""
+    return decrypt_api_key(value) if value else value
 
 
 # ============ Environment CRUD ============
@@ -124,13 +136,13 @@ def create_environment(
         name=env_data.name,
         description=env_data.description,
         cloud_platform=env_data.cloud_platform,
-        aws_access_key_id=env_data.aws_access_key_id,
-        aws_secret_access_key=env_data.aws_secret_access_key,
+        aws_access_key_id=_encrypt_optional(env_data.aws_access_key_id),
+        aws_secret_access_key=_encrypt_optional(env_data.aws_secret_access_key),
         aws_region=env_data.aws_region,
-        azure_subscription_id=env_data.azure_subscription_id,
-        azure_tenant_id=env_data.azure_tenant_id,
-        azure_client_id=env_data.azure_client_id,
-        azure_client_secret=env_data.azure_client_secret,
+        azure_subscription_id=_encrypt_optional(env_data.azure_subscription_id),
+        azure_tenant_id=_encrypt_optional(env_data.azure_tenant_id),
+        azure_client_id=_encrypt_optional(env_data.azure_client_id),
+        azure_client_secret=_encrypt_optional(env_data.azure_client_secret),
         is_default=env_data.is_default,
     )
 
@@ -267,7 +279,15 @@ def update_environment(
         ).update({"is_default": False})
 
     update_data = env_data.model_dump(exclude_unset=True)
+    # Encrypt credential fields before writing
+    _credential_fields = {
+        "aws_access_key_id", "aws_secret_access_key",
+        "azure_subscription_id", "azure_tenant_id",
+        "azure_client_id", "azure_client_secret",
+    }
     for field, value in update_data.items():
+        if field in _credential_fields and value:
+            value = encrypt_api_key(value)
         setattr(environment, field, value)
 
     db.commit()
