@@ -1,9 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { chatService } from '../services/api';
+import { chatService, getApiToken } from '../services/api';
 import type { AgentType } from '../components/chat/AgentProgressIndicator';
 
 interface Message {
+  id: string;
   role: 'user' | 'assistant';
   content: string;
   code_blocks?: Array<{
@@ -11,6 +12,11 @@ interface Message {
     content: string;
     language: string;
   }>;
+}
+
+let messageCounter = 0;
+function generateMessageId(): string {
+  return `msg-${Date.now()}-${++messageCounter}`;
 }
 
 interface Session {
@@ -29,6 +35,7 @@ interface AgentProgressState {
 }
 
 interface ChatState {
+  authUserId: number | null;
   // Multi-session support
   sessions: Record<string, Session>;  // sessionId -> Session
   currentSessionId: string | null;
@@ -40,26 +47,33 @@ interface ChatState {
   // Agent progress tracking
   agentProgress: AgentProgressState;
   
+  // SSE stream abort
+  _abortController: AbortController | null;
+  cancelStream: () => void;
+  
   // Session management
   createNewSession: () => Promise<void>;
   switchSession: (sessionId: string) => void;
-  deleteSession: (sessionId: string) => void;
+  deleteSession: (sessionId: string) => Promise<void>;
   renameSession: (sessionId: string, newTitle: string) => void;
   
   // Message operations
-  sendMessage: (content: string, resources?: any[]) => Promise<void>;
-  sendMessageWithProgress: (content: string, resources?: any[]) => Promise<void>;
+  sendMessage: (content: string, resources?: Record<string, unknown>[]) => Promise<void>;
+  sendMessageWithProgress: (content: string, resources?: Record<string, unknown>[]) => Promise<void>;
   
   // Progress management
   resetProgress: () => void;
   
   // Legacy compatibility
   clearSession: () => void;
+  setAuthUser: (userId: number | null) => void;
+  syncSessionsFromServer: () => Promise<void>;
 }
 
 export const useChatStore = create<ChatState>()(
   persist(
     (set, get) => ({
+      authUserId: null,
       sessions: {},
       currentSessionId: null,
       isLoading: false,
@@ -68,6 +82,15 @@ export const useChatStore = create<ChatState>()(
         currentAgent: null,
         completedAgents: [],
         failedAgent: null,
+      },
+      _abortController: null,
+      
+      cancelStream: () => {
+        const { _abortController } = get();
+        if (_abortController) {
+          _abortController.abort();
+          set({ _abortController: null, isLoading: false });
+        }
       },
       
       resetProgress: () => {
@@ -113,7 +136,15 @@ export const useChatStore = create<ChatState>()(
         }
       },
       
-      deleteSession: (sessionId: string) => {
+      deleteSession: async (sessionId: string) => {
+        try {
+          await chatService.deleteSession(sessionId);
+        } catch (error) {
+          console.error('Failed to delete session:', error);
+          set({ error: 'Failed to delete session' });
+          return;
+        }
+
         const { sessions, currentSessionId } = get();
         const newSessions = { ...sessions };
         delete newSessions[sessionId];
@@ -148,8 +179,9 @@ export const useChatStore = create<ChatState>()(
       },
       
       // Original sendMessage (non-streaming, for fallback)
-      sendMessage: async (content: string, resources?: any[]) => {
-        let { currentSessionId, sessions } = get();
+      sendMessage: async (content: string, resources?: Record<string, unknown>[]) => {
+        let { currentSessionId } = get();
+        const { sessions } = get();
         
         // Auto-create session if none exists
         if (!currentSessionId) {
@@ -169,7 +201,7 @@ export const useChatStore = create<ChatState>()(
         }
         
         // Add user message immediately
-        const userMessage: Message = { role: 'user', content };
+        const userMessage: Message = { id: generateMessageId(), role: 'user', content };
         const updatedMessages = [...session.messages, userMessage];
         
         set({
@@ -196,6 +228,7 @@ export const useChatStore = create<ChatState>()(
           });
           
           const assistantMessage: Message = {
+            id: generateMessageId(),
             role: 'assistant',
             content: response.message,
             code_blocks: response.code_blocks,
@@ -223,8 +256,9 @@ export const useChatStore = create<ChatState>()(
       },
       
       // New streaming sendMessage with progress tracking
-      sendMessageWithProgress: async (content: string, resources?: any[]) => {
-        let { currentSessionId, sessions } = get();
+      sendMessageWithProgress: async (content: string, resources?: Record<string, unknown>[]) => {
+        let { currentSessionId } = get();
+        const { sessions } = get();
         
         // Auto-create session if none exists
         if (!currentSessionId) {
@@ -243,8 +277,7 @@ export const useChatStore = create<ChatState>()(
           return;
         }
         
-        // Add user message immediately
-        const userMessage: Message = { role: 'user', content };
+        const userMessage: Message = { id: generateMessageId(), role: 'user', content };
         const updatedMessages = [...session.messages, userMessage];
         
         // Reset progress and start loading
@@ -267,20 +300,24 @@ export const useChatStore = create<ChatState>()(
         });
         
         try {
-          // Prepare request body
           const requestBody = {
             session_id: currentSessionId,
             message: content,
             context: resources ? { excel_resources: resources } : undefined,
           };
+          const token = getApiToken();
           
-          // Use SSE streaming endpoint
+          const abortController = new AbortController();
+          set({ _abortController: abortController });
+          
           const response = await fetch('/api/chat/stream', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
             body: JSON.stringify(requestBody),
+            signal: abortController.signal,
           });
           
           if (!response.ok) {
@@ -291,108 +328,147 @@ export const useChatStore = create<ChatState>()(
           if (!reader) {
             throw new Error('No response body');
           }
-          
+
           const decoder = new TextDecoder();
           let buffer = '';
           
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            
-            buffer += decoder.decode(value, { stream: true });
-            
-            // Parse SSE events from buffer
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';  // Keep incomplete line in buffer
-            
-            // Track event type across lines (SSE format: event: X\ndata: Y\n\n)
-            let currentEventType = '';
-            
-            for (const line of lines) {
-              if (line.startsWith('event: ')) {
-                // Capture event type for the next data line
-                currentEventType = line.slice(7).trim();
-                continue;
-              }
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
               
-              if (line.startsWith('data: ')) {
-                const data = line.slice(6);
-                try {
-                  const event = JSON.parse(data);
-                  
-                  // Use captured event type (from 'event:' line) 
-                  const eventType = currentEventType || event.type;
-                  
-                  if (eventType === 'complete') {
-                    // Final response
-                    const assistantMessage: Message = {
-                      role: 'assistant',
-                      content: event.message || '',
-                      code_blocks: event.code_blocks,
-                    };
+              buffer += decoder.decode(value, { stream: true });
+              
+              // Parse SSE events from buffer
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';  // Keep incomplete line in buffer
+              
+              // Track event type across lines (SSE format: event: X\ndata: Y\n\n)
+              let currentEventType = '';
+              
+              for (const rawLine of lines) {
+                const line = rawLine.trimEnd();
+                if (!line) {
+                  continue;
+                }
+
+                if (line.startsWith('event: ')) {
+                  // Capture event type for the next data line
+                  currentEventType = line.slice(7).trim();
+                  continue;
+                }
+                
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6).trim();
+                  try {
+                    const event = JSON.parse(data);
                     
-                    const currentState = get();
-                    const currentSession = currentState.sessions[currentSessionId!];
+                    // Use captured event type (from 'event:' line) 
+                    const eventType = currentEventType || event.type;
                     
-                    set({
-                      sessions: {
-                        ...currentState.sessions,
-                        [currentSessionId!]: {
-                          ...currentSession,
-                          messages: [...currentSession.messages, assistantMessage],
-                          updatedAt: Date.now(),
-                        },
-                      },
-                      isLoading: false,
-                      agentProgress: {
-                        ...currentState.agentProgress,
-                        currentAgent: null,
-                      },
-                    });
-                  } else if (eventType === 'error') {
-                    set({
-                      error: event.message || 'Unknown error',
-                      isLoading: false,
-                    });
-                  } else if (eventType === 'progress' && event.agent) {
-                    // Progress event - update agent status
-                    const agentType = event.agent as AgentType;
-                    const status = event.status;
-                    
-                    console.log('[SSE] Progress event:', agentType, status);
-                    
-                    set((state) => {
-                      const newCompletedAgents = status === 'completed'
-                        ? [...state.agentProgress.completedAgents, agentType]
-                        : state.agentProgress.completedAgents;
-                      
-                      return {
-                        agentProgress: {
-                          currentAgent: status === 'started' ? agentType : 
-                                       (status === 'completed' ? null : state.agentProgress.currentAgent),
-                          completedAgents: newCompletedAgents,
-                          failedAgent: status === 'failed' ? agentType : state.agentProgress.failedAgent,
-                          currentMessage: event.message || event.agent_description,
-                        },
+                    if (eventType === 'complete') {
+                      // Final response
+                      const assistantMessage: Message = {
+                        id: generateMessageId(),
+                        role: 'assistant',
+                        content: event.message || '',
+                        code_blocks: event.code_blocks,
                       };
-                    });
+                      
+                      const currentState = get();
+                      const currentSession = currentState.sessions[currentSessionId!];
+                      
+                      set({
+                        sessions: {
+                          ...currentState.sessions,
+                          [currentSessionId!]: {
+                            ...currentSession,
+                            messages: [...currentSession.messages, assistantMessage],
+                            updatedAt: Date.now(),
+                          },
+                        },
+                        isLoading: false,
+                        _abortController: null,
+                        agentProgress: {
+                          ...currentState.agentProgress,
+                          currentAgent: null,
+                        },
+                      });
+                    } else if (eventType === 'error') {
+                      set({
+                        error: event.message || 'Unknown error',
+                        isLoading: false,
+                        _abortController: null,
+                      });
+                    } else if (eventType === 'progress' && event.agent) {
+                      // Progress event - update agent status
+                      const agentType = event.agent as AgentType;
+                      const status = event.status;
+                      
+                      set((state) => {
+                        let newCompletedAgents = state.agentProgress.completedAgents;
+                        let newCurrentAgent = state.agentProgress.currentAgent;
+                        let newFailedAgent = state.agentProgress.failedAgent;
+
+                        if (status === 'started') {
+                          // If an agent restarts (e.g., regenerate loop), move it back to active.
+                          newCompletedAgents = newCompletedAgents.filter(
+                            (agent) => agent !== agentType
+                          );
+                          newCurrentAgent = agentType;
+                          newFailedAgent = null;
+                        } else if (status === 'completed') {
+                          // De-duplicate completed agents.
+                          if (!newCompletedAgents.includes(agentType)) {
+                            newCompletedAgents = [...newCompletedAgents, agentType];
+                          }
+                          // Only clear current agent if this completion belongs to the active one.
+                          if (newCurrentAgent === agentType) {
+                            newCurrentAgent = null;
+                          }
+                        } else if (status === 'failed') {
+                          newFailedAgent = agentType;
+                          if (newCurrentAgent === agentType) {
+                            newCurrentAgent = null;
+                          }
+                        }
+                        
+                        return {
+                          agentProgress: {
+                            currentAgent: newCurrentAgent,
+                            completedAgents: newCompletedAgents,
+                            failedAgent: newFailedAgent,
+                            currentMessage: event.message || event.agent_description,
+                          },
+                        };
+                      });
+                    }
+                    
+                    // Reset event type after processing
+                    currentEventType = '';
+                  } catch (parseError) {
+                    console.warn('Failed to parse SSE event:', data, parseError);
                   }
-                  
-                  // Reset event type after processing
-                  currentEventType = '';
-                } catch (parseError) {
-                  console.warn('Failed to parse SSE event:', data, parseError);
                 }
               }
             }
+          } finally {
+            reader.releaseLock();
           }
+          // Clear abort controller after successful stream completion
+          set((state) => (state._abortController ? { _abortController: null } : {}));
         } catch (error) {
+          if (error instanceof DOMException && error.name === 'AbortError') {
+            set({ isLoading: false, _abortController: null });
+            return;
+          }
           console.error('SendMessageWithProgress Error:', error);
-          set({ error: 'Failed to send message', isLoading: false });
-          
-          // Fallback to non-streaming method
-          console.log('Falling back to non-streaming method');
-          await get().sendMessage(content, resources);
+          try {
+            await get().syncSessionsFromServer();
+          } catch {
+            // Ignore secondary sync error; keep primary error message below.
+          }
+          set({ error: 'Failed to stream progress. Session has been synced from server.', isLoading: false, _abortController: null });
         }
       },
       
@@ -400,15 +476,134 @@ export const useChatStore = create<ChatState>()(
       clearSession: () => {
         const { currentSessionId } = get();
         if (currentSessionId) {
-          get().deleteSession(currentSessionId);
+          void get().deleteSession(currentSessionId);
+        }
+      },
+
+      setAuthUser: (userId: number | null) => {
+        const currentAuthUserId = get().authUserId;
+        if (currentAuthUserId === userId) return;
+
+        // Hard reset chat state when account changes to prevent cross-user leakage.
+        set({
+          authUserId: userId,
+          sessions: {},
+          currentSessionId: null,
+          isLoading: false,
+          error: null,
+          agentProgress: {
+            currentAgent: null,
+            completedAgents: [],
+            failedAgent: null,
+            currentMessage: undefined,
+          },
+        });
+      },
+
+      syncSessionsFromServer: async () => {
+        const { authUserId } = get();
+        if (!authUserId) return;
+
+        try {
+          const apiSessions = await chatService.listSessions();
+          const mappedSessions: Record<string, Session> = {};
+
+          for (const item of apiSessions) {
+            const sessionId = item.session_id;
+            const created = new Date(item.created_at).getTime() || Date.now();
+            const rawMessages: Message[] = (item.conversation_history || [])
+              .map((msg: { role?: string; content?: string; code_blocks?: Message['code_blocks'] }) => ({
+                id: generateMessageId(),
+                role: (msg.role === 'assistant' ? 'assistant' : 'user') as Message['role'],
+                content: msg.content || '',
+                code_blocks: msg.code_blocks,
+              }))
+              .filter((msg) => msg.content.trim().length > 0);
+
+            // Remove accidental duplicated adjacent messages from historical persisted data.
+            let messages = rawMessages.filter((msg, index) => {
+              if (index === 0) return true;
+              const prev = rawMessages[index - 1];
+              return !(prev.role === msg.role && prev.content === msg.content);
+            });
+
+            // If all user prompts in this session are identical, keep only the latest run
+            // to hide duplicated retries created by historical auto-resend behavior.
+            const userMessageIndexes = messages
+              .map((m, idx) => (m.role === 'user' ? idx : -1))
+              .filter((idx) => idx >= 0);
+            const uniqueUserContents = new Set(
+              messages.filter((m) => m.role === 'user').map((m) => m.content)
+            );
+            if (userMessageIndexes.length > 1 && uniqueUserContents.size === 1) {
+              const lastUserIdx = userMessageIndexes[userMessageIndexes.length - 1];
+              messages = messages.slice(lastUserIdx);
+            }
+
+            // Restore code artifacts for Excel/code-generation sessions even if conversation text
+            // only contains summary.
+            if (item.generated_code && Object.keys(item.generated_code).length > 0) {
+              const generatedBlocks = Object.entries(item.generated_code).map(([filename, content]) => ({
+                filename,
+                content,
+                language: filename.endsWith('.tf') ? 'hcl' : 'text',
+              }));
+
+              let attached = false;
+              for (let i = messages.length - 1; i >= 0; i -= 1) {
+                if (messages[i].role === 'assistant') {
+                  messages[i] = { ...messages[i], code_blocks: generatedBlocks };
+                  attached = true;
+                  break;
+                }
+              }
+              if (!attached) {
+                messages.push({
+                  id: generateMessageId(),
+                  role: 'assistant',
+                  content: 'Terraform code has been generated.',
+                  code_blocks: generatedBlocks,
+                });
+              }
+            }
+
+            mappedSessions[sessionId] = {
+              id: sessionId,
+              title: messages[0]?.content?.slice(0, 30) || `Session ${Object.keys(mappedSessions).length + 1}`,
+              messages,
+              createdAt: created,
+              updatedAt: created,
+            };
+          }
+
+          const nextCurrentSessionId =
+            (get().currentSessionId && mappedSessions[get().currentSessionId!])
+              ? get().currentSessionId
+              : (Object.keys(mappedSessions)[0] || null);
+
+          set({
+            sessions: mappedSessions,
+            currentSessionId: nextCurrentSessionId,
+          });
+        } catch (error) {
+          console.error('Failed to sync sessions from server:', error);
+          set({ error: 'Failed to load session history' });
         }
       },
     }),
     {
       name: 'iac-chat-storage',
-      partialize: (state) => ({ 
-        sessions: state.sessions,
+      partialize: (state) => ({
+        authUserId: state.authUserId,
         currentSessionId: state.currentSessionId,
+        // Only persist session metadata, not message content.
+        // Messages are fetched fresh from server via syncSessionsFromServer().
+        sessions: Object.fromEntries(
+          Object.entries(state.sessions).map(([id, s]) => [
+            id,
+            { id: s.id, title: s.title, messages: [], createdAt: s.createdAt, updatedAt: s.updatedAt },
+          ])
+        ),
       }),
     }
   )

@@ -1,5 +1,13 @@
 import axios from 'axios';
 
+let authToken: string | null = null;
+
+export const setApiToken = (token: string | null) => {
+  authToken = token;
+};
+
+export const getApiToken = (): string | null => authToken;
+
 const api = axios.create({
   baseURL: '/api',
   headers: {
@@ -7,10 +15,18 @@ const api = axios.create({
   },
 });
 
+api.interceptors.request.use((config) => {
+  if (authToken) {
+    config.headers = config.headers ?? {};
+    config.headers.Authorization = `Bearer ${authToken}`;
+  }
+  return config;
+});
+
 export interface ChatRequest {
   session_id?: string;
   message: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 export interface ChatResponse {
@@ -31,6 +47,21 @@ export interface ChatResponse {
   };
 }
 
+export interface ApiSession {
+  session_id: string;
+  created_at: string;
+  conversation_history?: Array<{
+    role?: string;
+    content?: string;
+    code_blocks?: Array<{
+      filename: string;
+      content: string;
+      language: string;
+    }>;
+  }>;
+  generated_code?: Record<string, string>;
+}
+
 export interface CodeGenerationResult {
   success: boolean;
   files: Array<{
@@ -41,6 +72,41 @@ export interface CodeGenerationResult {
   summary: string;
   download_url?: string;
 }
+
+export interface AuthUser {
+  id: number;
+  email: string;
+  full_name?: string | null;
+  provider: string;
+  avatar_url?: string | null;
+}
+
+export interface AuthTokenResponse {
+  access_token: string;
+  token_type: 'bearer';
+  user: AuthUser;
+}
+
+export const authService = {
+  register: async (data: { email: string; password: string; full_name?: string }) => {
+    const response = await api.post<AuthTokenResponse>('/auth/register', data);
+    return response.data;
+  },
+  login: async (data: { email: string; password: string }) => {
+    const response = await api.post<AuthTokenResponse>('/auth/login', data);
+    return response.data;
+  },
+  me: async () => {
+    const response = await api.get<AuthUser>('/auth/me');
+    return response.data;
+  },
+  exchangeCode: async (code: string) => {
+    const response = await api.post<AuthTokenResponse>('/auth/exchange', { code });
+    return response.data;
+  },
+  getGoogleLoginUrl: () => '/api/auth/google/login',
+  getMicrosoftLoginUrl: () => '/api/auth/microsoft/login',
+};
 
 export const chatService = {
   sendMessage: async (data: ChatRequest) => {
@@ -56,9 +122,17 @@ export const chatService = {
   },
   
   createSession: async () => {
-    // Explicitly send user_id as null to match schema
-    const response = await api.post<{ session_id: string }>('/sessions', { user_id: null });
+    const response = await api.post<{ session_id: string }>('/sessions');
     return response.data;
+  },
+
+  listSessions: async () => {
+    const response = await api.get<ApiSession[]>('/sessions');
+    return response.data;
+  },
+
+  deleteSession: async (sessionId: string) => {
+    await api.delete(`/sessions/${sessionId}`);
   }
 };
 
@@ -83,18 +157,31 @@ export const excelService = {
   }
 };
 
+export interface PolicyCreate {
+  name: string;
+  description?: string;
+  natural_language_rule: string;
+  cloud_platform?: CloudPlatform;
+  severity?: 'error' | 'warning';
+  enabled?: boolean;
+}
+
+export interface PolicyUpdate extends Partial<PolicyCreate> {
+  executable_rule?: Record<string, unknown>;
+}
+
 export const policyService = {
   getPolicies: async () => {
     const response = await api.get('/policies');
     return response.data;
   },
   
-  createPolicy: async (policy: any) => {
+  createPolicy: async (policy: PolicyCreate | Partial<PolicyCreate>) => {
     const response = await api.post('/policies', policy);
     return response.data;
   },
   
-  updatePolicy: async (id: number, policy: any) => {
+  updatePolicy: async (id: number, policy: PolicyUpdate | Partial<PolicyCreate>) => {
     const response = await api.put(`/policies/${id}`, policy);
     return response.data;
   },
@@ -136,6 +223,15 @@ export interface DeploymentEnvironment {
   updated_at: string | null;
 }
 
+export interface DeploymentEnvironmentDetail extends DeploymentEnvironment {
+  aws_access_key_id?: string | null;
+  aws_secret_access_key?: string | null;
+  azure_subscription_id?: string | null;
+  azure_tenant_id?: string | null;
+  azure_client_id?: string | null;
+  azure_client_secret?: string | null;
+}
+
 export interface DeploymentEnvironmentCreate {
   name: string;
   description?: string;
@@ -165,7 +261,7 @@ export interface Deployment {
   plan_output: string | null;
   plan_summary: PlanSummary | null;
   apply_output: string | null;
-  terraform_outputs: Record<string, any> | null;
+  terraform_outputs: Record<string, unknown> | null;
   error_message: string | null;
   created_at: string;
   updated_at: string | null;
@@ -189,7 +285,7 @@ export interface DeploymentApplyResponse {
   deployment_id: string;
   status: DeploymentStatusType;
   apply_output: string | null;
-  terraform_outputs: Record<string, any> | null;
+  terraform_outputs: Record<string, unknown> | null;
   error_message: string | null;
 }
 
@@ -197,6 +293,13 @@ export const deploymentService = {
   // Environment CRUD
   getEnvironments: async (): Promise<DeploymentEnvironment[]> => {
     const response = await api.get<DeploymentEnvironment[]>('/deployments/environments');
+    return response.data;
+  },
+
+  getEnvironment: async (id: number): Promise<DeploymentEnvironmentDetail> => {
+    const response = await api.get<DeploymentEnvironmentDetail>(
+      `/deployments/environments/${id}`
+    );
     return response.data;
   },
 
@@ -221,11 +324,12 @@ export const deploymentService = {
       const response = await api.post<DeploymentPlanResponse>('/deployments/plan', request);
       console.log(`[API: Deploy] Plan response received:`, response.data);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`[API: Deploy] Plan request failed:`, error);
-      if (error.response) {
-        console.error(`[API: Deploy] Error response:`, error.response.data);
-        console.error(`[API: Deploy] Error status:`, error.response.status);
+      const axErr = error as { response?: { data?: unknown; status?: number } };
+      if (axErr.response) {
+        console.error(`[API: Deploy] Error response:`, axErr.response.data);
+        console.error(`[API: Deploy] Error status:`, axErr.response.status);
       }
       throw error;
     }
@@ -239,11 +343,12 @@ export const deploymentService = {
       });
       console.log(`[API: Deploy] Apply response received:`, response.data);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`[API: Deploy] Apply request failed:`, error);
-      if (error.response) {
-        console.error(`[API: Deploy] Error response:`, error.response.data);
-        console.error(`[API: Deploy] Error status:`, error.response.status);
+      const axErr = error as { response?: { data?: unknown; status?: number } };
+      if (axErr.response) {
+        console.error(`[API: Deploy] Error response:`, axErr.response.data);
+        console.error(`[API: Deploy] Error status:`, axErr.response.status);
       }
       throw error;
     }

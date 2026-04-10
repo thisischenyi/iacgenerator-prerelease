@@ -34,3 +34,9 @@ prn
 aux
 com1
 lpt1
+
+.gemini/
+gha-creds-*.json
+
+# Documentation (internal review notes, not for repo)
+docs/

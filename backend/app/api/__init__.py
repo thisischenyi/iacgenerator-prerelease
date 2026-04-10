@@ -1,6 +1,7 @@
 """API routes package."""
 
 from app.api import (
+    auth,
     policies,
     llm_config,
     sessions,
@@ -12,6 +13,7 @@ from app.api import (
 )
 
 __all__ = [
+    "auth",
     "policies",
     "llm_config",
     "sessions",

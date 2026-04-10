@@ -1,21 +1,25 @@
 """Chat API routes."""
 
 import json
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session as DBSession
 
 from app.core.database import get_db
-from app.models import Session
+from app.core.security import get_current_user
+from app.models import Session, User
 from app.schemas import ChatRequest, ChatResponse
 from app.agents.workflow import IaCAgentWorkflow
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("", response_model=ChatResponse)
 async def chat(
     chat_request: ChatRequest,
+    current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
     """
@@ -28,11 +32,7 @@ async def chat(
     Returns:
         Chat response
     """
-    print("\n" + "=" * 80)
-    print(f"[API:Chat] Received chat request")
-    print(f"[API:Chat] Session ID: {chat_request.session_id}")
-    print(f"[API:Chat] Message: {chat_request.message[:100]}...")
-    print("=" * 80)
+    logger.info("[API:Chat] Received chat request | session=%s | message=%.100s", chat_request.session_id, chat_request.message)
 
     # Get or create session
     if chat_request.session_id:
@@ -42,14 +42,19 @@ async def chat(
             .first()
         )
         if not session:
-            print(f"[API:Chat] ERROR: Session {chat_request.session_id} not found")
+            logger.warning("[API:Chat] Session %s not found", chat_request.session_id)
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Session with id {chat_request.session_id} not found",
             )
-        print(f"[API:Chat] Session found: {session.session_id}")
+        if session.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to use this session",
+            )
+        logger.debug("[API:Chat] Session found: %s", session.session_id)
     else:
-        print("[API:Chat] ERROR: Session ID missing in request")
+        logger.warning("[API:Chat] Session ID missing in request")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Session ID is required",
@@ -57,20 +62,18 @@ async def chat(
 
     try:
         # Initialize workflow
-        print("[API:Chat] Initializing IaCAgentWorkflow...")
+        logger.debug("[API:Chat] Initializing IaCAgentWorkflow")
         workflow = IaCAgentWorkflow(db)
 
         # Check if Excel resources are provided in context
         excel_resources = None
         if chat_request.context and "excel_resources" in chat_request.context:
             excel_resources = chat_request.context["excel_resources"]
-            print(
-                f"[API:Chat] Excel resources found in context: {len(excel_resources)} resources"
-            )
+            logger.debug("[API:Chat] Excel resources found: %d resources", len(excel_resources))
         else:
-            print("[API:Chat] No Excel resources in context")
+            logger.debug("[API:Chat] No Excel resources in context")
 
-        print(f"[API:Chat] Executing workflow for session {session.session_id}")
+        logger.info("[API:Chat] Executing workflow for session %s", session.session_id)
         # Execute workflow
         final_state = workflow.run(
             session_id=session.session_id,
@@ -78,12 +81,12 @@ async def chat(
             excel_data=None,
             excel_resources=excel_resources,
         )
-        print("[API:Chat] Workflow execution completed")
-        print(f"[API:Chat] Final state: {final_state.get('workflow_state')}")
+        logger.info("[API:Chat] Workflow execution completed")
+        logger.debug("[API:Chat] Final state: %s", final_state.get('workflow_state'))
 
         # Get latest message from state
         messages = final_state.get("messages", [])
-        print(f"[API:Chat] Total messages in final state: {len(messages)}")
+        logger.debug("[API:Chat] Total messages: %d", len(messages))
         last_message = ""
         if messages:
             for msg in reversed(messages):
@@ -96,21 +99,21 @@ async def chat(
                         last_message = msg.content
                         break
 
-        print(f"[API:Chat] Last AI message: {last_message[:100]}...")
+        logger.debug("[API:Chat] Last AI message: %.100s", last_message)
 
         # Prepare code blocks if code was generated
         code_blocks = None
         generated_code = final_state.get("generated_code")
 
         if generated_code:
-            print(f"[API:Chat] Generated code files: {list(generated_code.keys())}")
+            logger.debug("[API:Chat] Generated code files: %s", list(generated_code.keys()))
             code_blocks = [
                 {"filename": filename, "content": content, "language": "hcl"}
                 for filename, content in generated_code.items()
             ]
-            print(f"[API:Chat] Prepared {len(code_blocks)} code blocks for response")
+            logger.debug("[API:Chat] Prepared %d code blocks", len(code_blocks))
         else:
-            print("[API:Chat] No generated code in final state")
+            logger.debug("[API:Chat] No generated code in final state")
 
         response = ChatResponse(
             session_id=session.session_id,
@@ -126,40 +129,28 @@ async def chat(
             },
         )
 
-        print(f"[API:Chat] Response prepared successfully")
-        print("=" * 80 + "\n")
+        logger.info("[API:Chat] Response prepared successfully")
+        
         return response
 
-    except Exception as e:
-        error_message = f"Error processing message: {str(e)}"
-        print(f"[API:Chat] ERROR: {error_message}")
-        import traceback
-
-        traceback.print_exc()
-
-        sid = chat_request.session_id if chat_request.session_id else ""
-
-        print("=" * 80 + "\n")
-        return ChatResponse(
-            session_id=sid,
-            message=error_message,
-            code_blocks=None,
-            metadata={"error": True, "error_details": str(e)},
+    except Exception:
+        logger.exception("[API:Chat] Unhandled exception processing chat message")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An internal error occurred while processing your message.",
         )
 
 
 @router.post("/stream")
 async def chat_stream(
     chat_request: ChatRequest,
+    current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
     """
     Process chat message with streaming progress updates via SSE.
     """
-    print("\n" + "=" * 80)
-    print(f"[API:ChatStream] Received streaming chat request")
-    print(f"[API:ChatStream] Session ID: {chat_request.session_id}")
-    print("=" * 80)
+    logger.info("[API:ChatStream] Received streaming request | session=%s", chat_request.session_id)
 
     if not chat_request.session_id:
         raise HTTPException(
@@ -175,6 +166,11 @@ async def chat_stream(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Session with id {chat_request.session_id} not found",
         )
+    if session.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to use this session",
+        )
 
     async def generate_events():
         """Generate SSE events from agent progress."""
@@ -183,6 +179,9 @@ async def chat_stream(
 
         # Use a queue to bridge sync callbacks to async generator
         queue = asyncio.Queue()
+
+        # Capture the running loop before the callback closure uses it
+        loop = asyncio.get_running_loop()
 
         # Define callback for ProgressTracker
         def progress_callback(event: ProgressEvent):
@@ -195,7 +194,6 @@ async def chat_stream(
         )
 
         # Run workflow in thread pool
-        loop = asyncio.get_event_loop()
         import concurrent.futures
 
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
@@ -285,18 +283,9 @@ async def chat_stream(
         },
     )
 
-    return StreamingResponse(
-        generate_events(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
-
 
 def _sse_event(event_type: str, data: dict) -> str:
     """Format SSE event."""
     data_str = json.dumps(data, ensure_ascii=False)
     return f"event: {event_type}\ndata: {data_str}\n\n"
+

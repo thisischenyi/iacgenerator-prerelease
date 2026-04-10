@@ -1,5 +1,6 @@
 """Health check API routes."""
 
+import logging
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -9,6 +10,7 @@ from app.core.config import get_settings
 
 router = APIRouter()
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/health")
@@ -19,12 +21,12 @@ async def health_check(db: Session = Depends(get_db)):
     Returns:
         System health status
     """
-    # Check database connection
     try:
         db.execute(text("SELECT 1"))
         db_status = "healthy"
     except Exception as e:
-        db_status = f"unhealthy: {str(e)}"
+        logger.error("Database health check failed: %s", e)
+        db_status = "unhealthy"
 
     return {
         "status": "healthy" if db_status == "healthy" else "degraded",

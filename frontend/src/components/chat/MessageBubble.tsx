@@ -1,6 +1,6 @@
 import { Box, Paper, Typography, Avatar, useTheme, IconButton, Tooltip } from '@mui/material';
 import { Person as PersonIcon, SmartToy as BotIcon, Download as DownloadIcon, ContentCopy as CopyIcon, Check as CheckIcon } from '@mui/icons-material';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -26,11 +26,13 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
   const handleDownload = (filename: string, content: string) => {
     const element = document.createElement('a');
     const file = new Blob([content], {type: 'text/plain'});
-    element.href = URL.createObjectURL(file);
+    const objectUrl = URL.createObjectURL(file);
+    element.href = objectUrl;
     element.download = filename;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
+    URL.revokeObjectURL(objectUrl);
   };
 
   const handleCopy = (filename: string, content: string) => {
@@ -72,14 +74,14 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
             <Box className="markdown-content">
               <ReactMarkdown
                 components={{
-                  code({ node, inline, className, children, ...props }: any) {
+                  code({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'>) {
                     const match = /language-(\w+)/.exec(className || '');
-                    return !inline && match ? (
+                    const isCodeBlock = Boolean(match || className?.includes('language-'));
+                    return isCodeBlock && match ? (
                       <SyntaxHighlighter
-                        style={vscDarkPlus}
+                        style={vscDarkPlus as unknown as { [key: string]: React.CSSProperties }}
                         language={match[1]}
                         PreTag="div"
-                        {...props}
                       >
                         {String(children).replace(/\n$/, '')}
                       </SyntaxHighlighter>

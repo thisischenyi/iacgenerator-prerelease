@@ -1,6 +1,5 @@
 """Excel processing API routes."""
 
-import io
 import datetime
 from fastapi import APIRouter, UploadFile, File, HTTPException, status, Response
 from app.schemas import ExcelParseResult, TemplateType
@@ -30,11 +29,22 @@ async def upload_excel(
     Raises:
         HTTPException: If file format is invalid or parsing fails
     """
-    # Validate file type
+    # Validate file type by extension and content type
     if not file.filename or not file.filename.endswith((".xlsx", ".xls")):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid file format. Only .xlsx and .xls files are supported",
+        )
+
+    allowed_mimes = {
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-excel",
+        "application/octet-stream",  # some clients send this as fallback
+    }
+    if file.content_type and file.content_type not in allowed_mimes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid content type '{file.content_type}'. Expected an Excel file.",
         )
 
     # Check file size (10MB limit from settings)

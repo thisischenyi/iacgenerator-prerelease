@@ -208,7 +208,7 @@ class TerraformCodeGenerator:
                 main_code += resource_code + "\n\n"
             else:
                 print(
-                    f"[TerraformGenerator]   WARNING: No code generated for this resource!"
+                    "[TerraformGenerator]   WARNING: No code generated for this resource!"
                 )
 
         files["main.tf"] = main_code
@@ -247,20 +247,18 @@ class TerraformCodeGenerator:
                 if "Region" in r.get("properties", {}):
                     regions.add(r["properties"]["Region"])
 
-            primary_region = list(regions)[0] if regions else "us-east-1"
-
-            code += f"""terraform {{
-  required_providers {{
-    aws = {{
+            code += """terraform {
+  required_providers {
+    aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
-    }}
-  }}
-}}
+    }
+  }
+}
 
-provider "aws" {{
+provider "aws" {
   region = var.aws_region
-}}
+}
 
 """
 
@@ -519,7 +517,7 @@ provider "azurerm" {
         try:
             template = self.env.get_template(template_name)
             print(
-                f"[TerraformGenerator._generate_resource_code]   Template loaded successfully"
+                "[TerraformGenerator._generate_resource_code]   Template loaded successfully"
             )
             code = template.render(
                 resource_name=resource_name, properties=properties, resource=resource
@@ -529,7 +527,7 @@ provider "azurerm" {
             )
             if len(code) < 50:
                 print(
-                    f"[TerraformGenerator._generate_resource_code]   WARNING: Generated code is suspiciously short!"
+                    "[TerraformGenerator._generate_resource_code]   WARNING: Generated code is suspiciously short!"
                 )
                 print(f"[TerraformGenerator._generate_resource_code]   Code: {code}")
             return code

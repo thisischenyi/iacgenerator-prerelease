@@ -12,7 +12,7 @@ import tempfile
 import uuid
 import logging
 from datetime import datetime
-from typing import Dict, Optional, Tuple, Any
+from typing import Dict, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -98,9 +98,14 @@ class TerraformExecutor:
         )
         os.makedirs(work_dir, exist_ok=True)
 
-        # Write all terraform files
+        # Write all terraform files, rejecting any filename with path separators
         for filename, content in terraform_code.items():
-            filepath = os.path.join(work_dir, filename)
+            safe_name = os.path.basename(filename)
+            if not safe_name or safe_name != filename:
+                raise ValueError(
+                    f"Invalid terraform filename {filename!r}: path separators are not allowed."
+                )
+            filepath = os.path.join(work_dir, safe_name)
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(content)
 
@@ -117,25 +122,26 @@ class TerraformExecutor:
         """
         env = os.environ.copy()
 
+        from app.api.llm_config import decrypt_api_key
+
         if environment.cloud_platform.value == "aws":
             if environment.aws_access_key_id:
-                env["AWS_ACCESS_KEY_ID"] = environment.aws_access_key_id
+                env["AWS_ACCESS_KEY_ID"] = decrypt_api_key(environment.aws_access_key_id)
             if environment.aws_secret_access_key:
-                env["AWS_SECRET_ACCESS_KEY"] = environment.aws_secret_access_key
+                env["AWS_SECRET_ACCESS_KEY"] = decrypt_api_key(environment.aws_secret_access_key)
             if environment.aws_region:
                 env["AWS_DEFAULT_REGION"] = environment.aws_region
 
         elif environment.cloud_platform.value == "azure":
             if environment.azure_subscription_id:
-                env["ARM_SUBSCRIPTION_ID"] = environment.azure_subscription_id
-                # Also set as TF_VAR for the provider configuration
-                env["TF_VAR_azure_subscription_id"] = environment.azure_subscription_id
+                env["ARM_SUBSCRIPTION_ID"] = decrypt_api_key(environment.azure_subscription_id)
+                env["TF_VAR_azure_subscription_id"] = decrypt_api_key(environment.azure_subscription_id)
             if environment.azure_tenant_id:
-                env["ARM_TENANT_ID"] = environment.azure_tenant_id
+                env["ARM_TENANT_ID"] = decrypt_api_key(environment.azure_tenant_id)
             if environment.azure_client_id:
-                env["ARM_CLIENT_ID"] = environment.azure_client_id
+                env["ARM_CLIENT_ID"] = decrypt_api_key(environment.azure_client_id)
             if environment.azure_client_secret:
-                env["ARM_CLIENT_SECRET"] = environment.azure_client_secret
+                env["ARM_CLIENT_SECRET"] = decrypt_api_key(environment.azure_client_secret)
 
         return env
 
@@ -318,7 +324,7 @@ class TerraformExecutor:
             )
 
             # Run terraform init
-            logger.info(f"[TF] Running terraform init...")
+            logger.info("[TF] Running terraform init...")
             returncode, stdout, stderr = self._run_command(
                 [self.terraform_bin, "init", "-no-color", "-input=false"],
                 work_dir,
@@ -328,7 +334,7 @@ class TerraformExecutor:
             logger.info(f"[TF] terraform init returncode: {returncode}")
 
             if returncode != 0:
-                logger.error(f"[TF] terraform init FAILED!")
+                logger.error("[TF] terraform init FAILED!")
                 logger.error(f"[TF] stdout: {stdout[:1000]}")
                 logger.error(f"[TF] stderr: {stderr[:1000]}")
                 deployment.status = DeploymentStatus.PLAN_FAILED
@@ -337,7 +343,7 @@ class TerraformExecutor:
                 return deployment
 
             # Run terraform plan
-            logger.info(f"[TF] Running terraform plan...")
+            logger.info("[TF] Running terraform plan...")
             returncode, stdout, stderr = self._run_command(
                 [
                     self.terraform_bin,
@@ -355,15 +361,15 @@ class TerraformExecutor:
             logger.info(f"[TF] terraform plan returncode: {returncode}")
 
             if returncode != 0:
-                logger.error(f"[TF] terraform plan FAILED!")
-                logger.error(f"[TF] Plan output (first 2000 chars):")
+                logger.error("[TF] terraform plan FAILED!")
+                logger.error("[TF] Plan output (first 2000 chars):")
                 for line in plan_output[:2000].split("\n"):
                     logger.error(f"[TF]   {line}")
                 if len(plan_output) > 2000:
                     logger.error(
                         f"[TF] ... (truncated {len(plan_output) - 4000} chars) ..."
                     )
-                    logger.error(f"[TF] Plan output (last 2000 chars):")
+                    logger.error("[TF] Plan output (last 2000 chars):")
                     for line in plan_output[-2000:].split("\n"):
                         logger.error(f"[TF]   {line}")
                 deployment.status = DeploymentStatus.PLAN_FAILED
@@ -428,7 +434,7 @@ class TerraformExecutor:
             raise ValueError(
                 f"Deployment must be in PLAN_READY state, current: {deployment.status}"
             )
-        logger.info(f"[TF] Status check passed - deployment is ready for apply")
+        logger.info("[TF] Status check passed - deployment is ready for apply")
 
         environment = (
             self.db.query(DeploymentEnvironment)
@@ -446,7 +452,7 @@ class TerraformExecutor:
         # Update status
         deployment.status = DeploymentStatus.APPLYING
         self.db.commit()
-        logger.info(f"[TF] Deployment status updated to APPLYING")
+        logger.info("[TF] Deployment status updated to APPLYING")
 
         try:
             work_dir = deployment.work_dir
@@ -469,12 +475,12 @@ class TerraformExecutor:
                 "-auto-approve",
                 "tfplan",
             ]
-            logger.info(f"[TF] Preparing terraform apply")
+            logger.info("[TF] Preparing terraform apply")
             logger.info(f"[TF] Work directory: {work_dir}")
             logger.info(f"[TF] Command: {' '.join(apply_cmd)}")
 
             # 6. During apply execution - print when command starts
-            logger.info(f"[TF] Starting terraform apply execution...")
+            logger.info("[TF] Starting terraform apply execution...")
             # Run terraform apply with the saved plan
             returncode, stdout, stderr = self._run_command(
                 apply_cmd,
@@ -493,8 +499,8 @@ class TerraformExecutor:
 
             if returncode != 0:
                 # 8. If apply fails - print error details
-                logger.error(f"[TF] terraform apply FAILED!")
-                logger.error(f"[TF] Apply output (first 2000 chars):")
+                logger.error("[TF] terraform apply FAILED!")
+                logger.error("[TF] Apply output (first 2000 chars):")
                 for line in apply_output[:2000].split("\n"):
                     logger.error(f"[TF]   {line}")
                 if len(apply_output) > 2000:
@@ -505,14 +511,14 @@ class TerraformExecutor:
                 deployment.apply_output = apply_output
                 deployment.error_message = "terraform apply failed"
                 self.db.commit()
-                logger.info(f"[TF] Deployment status updated to APPLY_FAILED")
+                logger.info("[TF] Deployment status updated to APPLY_FAILED")
                 return deployment
 
-            logger.info(f"[TF] terraform apply SUCCESS")
+            logger.info("[TF] terraform apply SUCCESS")
 
             # 9. Before getting outputs - print command
             output_cmd = [self.terraform_bin, "output", "-json"]
-            logger.info(f"[TF] Getting terraform outputs")
+            logger.info("[TF] Getting terraform outputs")
             logger.info(f"[TF] Command: {' '.join(output_cmd)}")
             # Get terraform outputs
             returncode, stdout, stderr = self._run_command(
@@ -548,7 +554,7 @@ class TerraformExecutor:
             self.db.commit()
 
             # 11. Final status update - print final status
-            logger.info(f"[TF] Deployment status updated to APPLY_SUCCESS")
+            logger.info("[TF] Deployment status updated to APPLY_SUCCESS")
             logger.info(f"[TF] Deployment completed at: {deployment.completed_at}")
             logger.info(
                 f"[TF] run_apply finished successfully for deployment_id={deployment_id}"
@@ -562,7 +568,7 @@ class TerraformExecutor:
             deployment.error_message = str(e)
             self.db.commit()
             logger.info(
-                f"[TF] Deployment status updated to APPLY_FAILED due to exception"
+                "[TF] Deployment status updated to APPLY_FAILED due to exception"
             )
             return deployment
 

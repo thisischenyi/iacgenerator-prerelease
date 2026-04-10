@@ -96,12 +96,43 @@ class IaCAgentWorkflow:
             return
 
         # Update session fields
-        session.conversation_history = state.get("messages", [])
+        # Guard against duplicated adjacent messages caused by retries/fallback paths.
+        messages = state.get("messages", []) or []
+        deduped_messages = []
+        for msg in messages:
+            if (
+                deduped_messages
+                and deduped_messages[-1].get("role") == msg.get("role")
+                and deduped_messages[-1].get("content") == msg.get("content")
+            ):
+                continue
+            deduped_messages.append(msg)
+
+        session.conversation_history = deduped_messages
 
         session.resource_info = state.get("resources", [])
 
         session.compliance_results = state.get("compliance_results", {})
-        session.generated_code = state.get("generated_code", {})
+        generated_code = state.get("generated_code", {}) or {}
+        session.generated_code = generated_code
+
+        # Persist code blocks on the latest assistant message so session replay can render files.
+        if generated_code:
+            code_blocks = [
+                {
+                    "filename": filename,
+                    "content": content,
+                    "language": "hcl" if filename.endswith(".tf") else "text",
+                }
+                for filename, content in generated_code.items()
+            ]
+            for idx in range(len(deduped_messages) - 1, -1, -1):
+                if deduped_messages[idx].get("role") == "assistant":
+                    existing_blocks = deduped_messages[idx].get("code_blocks")
+                    if not existing_blocks:
+                        deduped_messages[idx]["code_blocks"] = code_blocks
+                    break
+
         session.workflow_state = state.get("workflow_state", "unknown")
 
         self.db.commit()
@@ -185,7 +216,7 @@ class IaCAgentWorkflow:
             Final agent state
         """
         print("\n" + "=" * 80)
-        print(f"[Workflow] STARTING WORKFLOW")
+        print("[Workflow] STARTING WORKFLOW")
         print(f"[Workflow] Session ID: {session_id}")
         print(f"[Workflow] User input length: {len(user_input)} chars")
         print(f"[Workflow] Excel data: {'Yes' if excel_data else 'No'}")
@@ -225,8 +256,13 @@ class IaCAgentWorkflow:
                 if isinstance(res, dict):
                     resources_dicts.append(res)
                 else:
-                    # Assume it's a Pydantic model
-                    resources_dicts.append(res if isinstance(res, dict) else res)
+                    # Serialize Pydantic model or dataclass to dict
+                    if hasattr(res, "model_dump"):
+                        resources_dicts.append(res.model_dump())
+                    elif hasattr(res, "__dict__"):
+                        resources_dicts.append(vars(res))
+                    else:
+                        resources_dicts.append(res)
             state["resources"] = resources_dicts
 
         # Run graph
@@ -296,7 +332,7 @@ class IaCAgentWorkflow:
             Final agent state
         """
         print("\n" + "=" * 80)
-        print(f"[Workflow] STARTING STREAMING WORKFLOW")
+        print("[Workflow] STARTING STREAMING WORKFLOW")
         print(f"[Workflow] Session ID: {session_id}")
         print("=" * 80)
 

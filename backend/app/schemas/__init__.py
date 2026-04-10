@@ -1,6 +1,6 @@
 """Pydantic schemas for API requests and responses."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -67,8 +67,7 @@ class SecurityPolicyResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # LLM Config Schemas
@@ -104,8 +103,7 @@ class LLMConfigResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Chat Schemas
@@ -215,14 +213,49 @@ class SessionResponse(BaseModel):
 
     session_id: str
     created_at: datetime
-    conversation_history: Optional[List[Dict[str, str]]] = None
+    conversation_history: Optional[List[Dict[str, Any]]] = None
     resource_info: Optional[List[Dict[str, Any]]] = None
     compliance_results: Optional[Dict[str, Any]] = None
     generated_code: Optional[Dict[str, str]] = None
     workflow_state: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+
+# Auth Schemas
+class UserRegisterRequest(BaseModel):
+    """Schema for user registration."""
+
+    email: str
+    password: str = Field(..., min_length=8, max_length=128)
+    full_name: Optional[str] = Field(None, max_length=255)
+
+
+class UserLoginRequest(BaseModel):
+    """Schema for user login."""
+
+    email: str
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+class UserProfileResponse(BaseModel):
+    """Schema for authenticated user profile."""
+
+    id: int
+    email: str
+    full_name: Optional[str] = None
+    provider: str
+    avatar_url: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AuthTokenResponse(BaseModel):
+    """Schema for auth token response."""
+
+    access_token: str
+    token_type: str = "bearer"
+    user: UserProfileResponse
 
 
 # General Responses
@@ -317,8 +350,22 @@ class DeploymentEnvironmentResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DeploymentEnvironmentDetailResponse(DeploymentEnvironmentResponse):
+    """Detailed deployment environment response for editing.
+
+    Non-secret credential identifiers are returned so the owner can edit them.
+    Secret values are masked as "***" when configured.
+    """
+
+    aws_access_key_id: Optional[str] = None
+    aws_secret_access_key: Optional[str] = None
+    azure_subscription_id: Optional[str] = None
+    azure_tenant_id: Optional[str] = None
+    azure_client_id: Optional[str] = None
+    azure_client_secret: Optional[str] = None
 
 
 # Deployment Schemas
@@ -359,8 +406,7 @@ class DeploymentResponse(BaseModel):
     updated_at: Optional[datetime]
     completed_at: Optional[datetime]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DeploymentPlanRequest(BaseModel):
@@ -394,3 +440,4 @@ class DeploymentApplyResponse(BaseModel):
     apply_output: Optional[str] = None
     terraform_outputs: Optional[Dict[str, Any]] = None
     error_message: Optional[str] = None
+

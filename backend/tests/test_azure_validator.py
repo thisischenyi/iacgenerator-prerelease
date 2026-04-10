@@ -231,3 +231,64 @@ resource "azurerm_mssql_server_vulnerability_assessment" "sqldb_app_stg_vulnerab
         in issue
         for issue in issues
     )
+
+
+def test_remove_invalid_sql_server_subnet_delegation():
+    """Validator should remove unsupported SQL server subnet delegations."""
+    main_tf = """
+resource "azurerm_subnet" "subnet_db_stg" {
+  name                 = "subnet-db-stg"
+  resource_group_name  = azurerm_resource_group.rg_demo.name
+  virtual_network_name = azurerm_virtual_network.vnet_demo.name
+  address_prefixes     = ["10.20.3.0/24"]
+
+  delegation {
+    name = "sql"
+
+    service_delegation {
+      name = "Microsoft.Sql/servers"
+      actions = [
+        "Microsoft.Network/virtualNetworks/subnets/join/action"
+      ]
+    }
+  }
+}
+"""
+    fixed_content, issues = AzureTerraformValidator.validate_and_fix_main_tf(main_tf)
+
+    assert 'resource "azurerm_subnet" "subnet_db_stg"' in fixed_content
+    assert "Microsoft.Sql/servers" not in fixed_content
+    assert "delegation {" not in fixed_content
+    assert any(
+        "Removed unsupported SQL subnet delegation(s) from azurerm_subnet.subnet_db_stg"
+        in issue
+        for issue in issues
+    )
+
+
+def test_keep_valid_managed_instance_subnet_delegation():
+    """Validator should keep valid SQL managed instance subnet delegation."""
+    main_tf = """
+resource "azurerm_subnet" "subnet_mi" {
+  name                 = "subnet-mi"
+  resource_group_name  = azurerm_resource_group.rg_demo.name
+  virtual_network_name = azurerm_virtual_network.vnet_demo.name
+  address_prefixes     = ["10.20.4.0/24"]
+
+  delegation {
+    name = "managed-instance"
+
+    service_delegation {
+      name = "Microsoft.Sql/managedInstances"
+      actions = [
+        "Microsoft.Network/virtualNetworks/subnets/join/action"
+      ]
+    }
+  }
+}
+"""
+    fixed_content, issues = AzureTerraformValidator.validate_and_fix_main_tf(main_tf)
+
+    assert "Microsoft.Sql/managedInstances" in fixed_content
+    assert "delegation {" in fixed_content
+    assert not any("unsupported SQL subnet delegation" in issue for issue in issues)

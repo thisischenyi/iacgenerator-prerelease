@@ -34,7 +34,7 @@ export const usePolicyStore = create<PolicyState>((set) => ({
       set({ isLoading: true, error: null });
       const policies = await policyService.getPolicies();
       set({ policies, isLoading: false });
-    } catch (error) {
+    } catch {
       set({ error: 'Failed to fetch policies', isLoading: false });
     }
   },
@@ -47,9 +47,9 @@ export const usePolicyStore = create<PolicyState>((set) => ({
         policies: [...state.policies, newPolicy],
         isLoading: false 
       }));
-    } catch (error) {
+    } catch (err: unknown) {
       set({ error: 'Failed to create policy', isLoading: false });
-      throw error;
+      throw err;
     }
   },
   
@@ -63,9 +63,9 @@ export const usePolicyStore = create<PolicyState>((set) => ({
         ),
         isLoading: false
       }));
-    } catch (error) {
+    } catch (err: unknown) {
       set({ error: 'Failed to update policy', isLoading: false });
-      throw error;
+      throw err;
     }
   },
   
@@ -79,7 +79,7 @@ export const usePolicyStore = create<PolicyState>((set) => ({
       }));
       
       await policyService.togglePolicy(id, enabled);
-    } catch (error) {
+    } catch {
       // Revert on failure
       set((state) => ({
         policies: state.policies.map(p => 
@@ -96,7 +96,7 @@ export const usePolicyStore = create<PolicyState>((set) => ({
       set((state) => ({
         policies: state.policies.filter(p => p.id !== id)
       }));
-    } catch (error) {
+    } catch {
       set({ error: 'Failed to delete policy' });
     }
   }

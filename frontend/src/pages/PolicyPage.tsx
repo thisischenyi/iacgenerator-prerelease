@@ -237,7 +237,7 @@ export default function PolicyPage() {
                 label="Platform"
                 fullWidth
                 value={newPolicy.cloud_platform}
-                onChange={(e) => setNewPolicy({ ...newPolicy, cloud_platform: e.target.value as any })}
+                onChange={(e) => setNewPolicy({ ...newPolicy, cloud_platform: e.target.value as 'all' | 'aws' | 'azure' })}
               >
                 <MenuItem value="all">All Platforms</MenuItem>
                 <MenuItem value="aws">AWS</MenuItem>
@@ -248,7 +248,7 @@ export default function PolicyPage() {
                 label="Severity"
                 fullWidth
                 value={newPolicy.severity}
-                onChange={(e) => setNewPolicy({ ...newPolicy, severity: e.target.value as any })}
+                onChange={(e) => setNewPolicy({ ...newPolicy, severity: e.target.value as 'error' | 'warning' })}
               >
                 <MenuItem value="error">Error</MenuItem>
                 <MenuItem value="warning">Warning</MenuItem>

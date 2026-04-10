@@ -1,11 +1,15 @@
 """Security policy management API routes."""
 
+import json
+import logging
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models import SecurityPolicy
+from app.core.security import get_current_user
+from app.agents.llm_client import LLMClient
+from app.models import SecurityPolicy, User
 from app.schemas import (
     SecurityPolicyCreate,
     SecurityPolicyUpdate,
@@ -14,38 +18,25 @@ from app.schemas import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("", response_model=List[SecurityPolicyResponse])
 def list_policies(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=200),
     enabled_only: bool = False,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Get all security policies.
-
-    Args:
-        skip: Number of records to skip
-        limit: Maximum number of records to return
-        enabled_only: If True, return only enabled policies
-        db: Database session
-
-    Returns:
-        List of security policies
-    """
-    query = db.query(SecurityPolicy)
+    """Get all security policies owned by current user."""
+    query = db.query(SecurityPolicy).filter(SecurityPolicy.user_id == current_user.id)
 
     if enabled_only:
-        query = query.filter(SecurityPolicy.enabled == True)
+        query = query.filter(SecurityPolicy.enabled)
 
     policies = query.offset(skip).limit(limit).all()
     return policies
-
-
-from app.agents.llm_client import LLMClient
-import json
 
 
 def _convert_rule_to_executable(db: Session, natural_language_rule: str) -> dict:
@@ -82,9 +73,18 @@ def _convert_rule_to_executable(db: Session, natural_language_rule: str) -> dict
                 response = response[4:].strip()
 
         return json.loads(response)
+    except json.JSONDecodeError as e:
+        logger.warning(f"LLM returned invalid JSON for rule conversion: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Failed to parse policy rule into executable format: {e}",
+        )
     except Exception as e:
-        print(f"Error converting rule: {e}")
-        return {}
+        logger.error(f"Error converting rule to executable: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to convert policy rule: {e}",
+        )
 
 
 @router.post(
@@ -92,14 +92,17 @@ def _convert_rule_to_executable(db: Session, natural_language_rule: str) -> dict
 )
 def create_policy(
     policy_data: SecurityPolicyCreate,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Create a new security policy.
-    """
-    # Check if policy with same name exists
+    """Create a new security policy for current user."""
     existing = (
-        db.query(SecurityPolicy).filter(SecurityPolicy.name == policy_data.name).first()
+        db.query(SecurityPolicy)
+        .filter(
+            SecurityPolicy.name == policy_data.name,
+            SecurityPolicy.user_id == current_user.id,
+        )
+        .first()
     )
 
     if existing:
@@ -108,11 +111,10 @@ def create_policy(
             detail=f"Policy with name '{policy_data.name}' already exists",
         )
 
-    # Convert natural language rule to executable JSON
     executable_rule = _convert_rule_to_executable(db, policy_data.natural_language_rule)
 
-    # Create new policy
     policy = SecurityPolicy(
+        user_id=current_user.id,
         name=policy_data.name,
         description=policy_data.description,
         natural_language_rule=policy_data.natural_language_rule,
@@ -132,22 +134,15 @@ def create_policy(
 @router.get("/{policy_id}", response_model=SecurityPolicyResponse)
 def get_policy(
     policy_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Get a specific security policy by ID.
-
-    Args:
-        policy_id: Policy ID
-        db: Database session
-
-    Returns:
-        Security policy
-
-    Raises:
-        HTTPException: If policy not found
-    """
-    policy = db.query(SecurityPolicy).filter(SecurityPolicy.id == policy_id).first()
+    """Get a specific security policy by ID."""
+    policy = (
+        db.query(SecurityPolicy)
+        .filter(SecurityPolicy.id == policy_id, SecurityPolicy.user_id == current_user.id)
+        .first()
+    )
 
     if not policy:
         raise HTTPException(
@@ -162,23 +157,15 @@ def get_policy(
 def update_policy(
     policy_id: int,
     policy_data: SecurityPolicyUpdate,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Update a security policy.
-
-    Args:
-        policy_id: Policy ID
-        policy_data: Policy update data
-        db: Database session
-
-    Returns:
-        Updated policy
-
-    Raises:
-        HTTPException: If policy not found or name conflict
-    """
-    policy = db.query(SecurityPolicy).filter(SecurityPolicy.id == policy_id).first()
+    """Update a security policy."""
+    policy = (
+        db.query(SecurityPolicy)
+        .filter(SecurityPolicy.id == policy_id, SecurityPolicy.user_id == current_user.id)
+        .first()
+    )
 
     if not policy:
         raise HTTPException(
@@ -186,11 +173,13 @@ def update_policy(
             detail=f"Security policy with id {policy_id} not found",
         )
 
-    # Check for name conflict if name is being updated
     if policy_data.name and policy_data.name != policy.name:
         existing = (
             db.query(SecurityPolicy)
-            .filter(SecurityPolicy.name == policy_data.name)
+            .filter(
+                SecurityPolicy.name == policy_data.name,
+                SecurityPolicy.user_id == current_user.id,
+            )
             .first()
         )
 
@@ -200,10 +189,8 @@ def update_policy(
                 detail=f"Policy with name '{policy_data.name}' already exists",
             )
 
-    # Update fields
     update_data = policy_data.model_dump(exclude_unset=True)
 
-    # If natural_language_rule is changing, re-generate executable_rule
     if "natural_language_rule" in update_data:
         update_data["executable_rule"] = _convert_rule_to_executable(
             db, update_data["natural_language_rule"]
@@ -221,22 +208,15 @@ def update_policy(
 @router.delete("/{policy_id}", response_model=SuccessResponse)
 def delete_policy(
     policy_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Delete a security policy.
-
-    Args:
-        policy_id: Policy ID
-        db: Database session
-
-    Returns:
-        Success response
-
-    Raises:
-        HTTPException: If policy not found
-    """
-    policy = db.query(SecurityPolicy).filter(SecurityPolicy.id == policy_id).first()
+    """Delete a security policy."""
+    policy = (
+        db.query(SecurityPolicy)
+        .filter(SecurityPolicy.id == policy_id, SecurityPolicy.user_id == current_user.id)
+        .first()
+    )
 
     if not policy:
         raise HTTPException(
@@ -256,22 +236,15 @@ def delete_policy(
 @router.patch("/{policy_id}/toggle", response_model=SecurityPolicyResponse)
 def toggle_policy(
     policy_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Toggle policy enabled status.
-
-    Args:
-        policy_id: Policy ID
-        db: Database session
-
-    Returns:
-        Updated policy
-
-    Raises:
-        HTTPException: If policy not found
-    """
-    policy = db.query(SecurityPolicy).filter(SecurityPolicy.id == policy_id).first()
+    """Toggle policy enabled status."""
+    policy = (
+        db.query(SecurityPolicy)
+        .filter(SecurityPolicy.id == policy_id, SecurityPolicy.user_id == current_user.id)
+        .first()
+    )
 
     if not policy:
         raise HTTPException(

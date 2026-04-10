@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Box, 
   Container, 
@@ -13,6 +14,14 @@ import MessageBubble from '../components/chat/MessageBubble';
 import SessionList from '../components/chat/SessionList';
 import AgentProgressIndicator from '../components/chat/AgentProgressIndicator';
 
+const consumedPendingMessageTokens = new Set<string>();
+
+interface PendingLocationState {
+  pendingMessage?: string;
+  pendingResources?: Record<string, unknown>[];
+  pendingMessageToken?: string;
+}
+
 export default function ChatPage() {
   const { 
     isLoading, 
@@ -25,6 +34,8 @@ export default function ChatPage() {
   const agentProgress = useAgentProgress();
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Auto-create first session if none exists
@@ -33,15 +44,31 @@ export default function ChatPage() {
     }
   }, [currentSessionId, createNewSession]);
 
+  // Handle pending message from UploadPage navigation state
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    const state = location.state as PendingLocationState | null;
+    if (state?.pendingMessage && state.pendingMessageToken && currentSessionId) {
+      if (consumedPendingMessageTokens.has(state.pendingMessageToken)) {
+        return;
+      }
+      consumedPendingMessageTokens.add(state.pendingMessageToken);
+      const msg = state.pendingMessage;
+      const res = state.pendingResources;
+      // Clear the navigation state to prevent re-send on remount
+      navigate(location.pathname, { replace: true, state: null });
+      void sendMessageWithProgress(msg, res);
+    }
+  }, [location.state, currentSessionId, sendMessageWithProgress, navigate, location.pathname]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleSend = async () => {
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSend= async () => {
     if (!input.trim() || isLoading) return;
     
     const content = input;
@@ -80,7 +107,7 @@ export default function ChatPage() {
             overflowY: 'auto',
             display: 'flex',
             flexDirection: 'column',
-            bgcolor: '#f8f9fa'
+            bgcolor: 'grey.50'
           }}
         >
           {messages.length === 0 ? (
@@ -97,7 +124,7 @@ export default function ChatPage() {
             </Box>
           ) : (
             messages.map((msg, index) => (
-              <MessageBubble key={index} message={msg} />
+              <MessageBubble key={msg.id ?? `msg-${index}`} message={msg} />
             ))
           )}
           

@@ -1,14 +1,20 @@
 """LLM client wrapper for agent nodes."""
 
+import logging
 from typing import List, Dict, Any, Optional
 from openai import OpenAI
 from sqlalchemy.orm import Session
 
-from app.models import LLMConfig
 from app.core.database import SessionLocal
 
 
 from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
+
+
+class LLMClientError(Exception):
+    """Raised when an LLM API call fails."""
 
 
 class LLMClient:
@@ -94,7 +100,8 @@ class LLMClient:
             return response.choices[0].message.content or ""
 
         except Exception as e:
-            return f"Error calling LLM: {str(e)}"
+            logger.error("LLM API call failed: %s", e)
+            raise LLMClientError(f"Error calling LLM: {e}") from e
 
     def generate_prompt(
         self,

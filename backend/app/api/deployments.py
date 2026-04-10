@@ -1,15 +1,23 @@
 """Deployment environment and terraform deployment API routes."""
 
 import logging
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models import DeploymentEnvironment, Deployment
+from app.core.security import get_current_user
+from app.api.llm_config import encrypt_api_key, decrypt_api_key
+from app.models import (
+    DeploymentEnvironment,
+    Deployment,
+    Session as ChatSession,
+    User,
+)
 from app.schemas import (
     DeploymentEnvironmentCreate,
     DeploymentEnvironmentUpdate,
+    DeploymentEnvironmentDetailResponse,
     DeploymentEnvironmentResponse,
     DeploymentPlanRequest,
     DeploymentPlanResponse,
@@ -23,6 +31,17 @@ from app.schemas import (
 from app.services.terraform_executor import TerraformExecutor
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+def _encrypt_optional(value: Optional[str]) -> Optional[str]:
+    """Encrypt a value if it is not None/empty."""
+    return encrypt_api_key(value) if value else value
+
+
+def _decrypt_optional(value: Optional[str]) -> Optional[str]:
+    """Decrypt a value if it is not None/empty."""
+    return decrypt_api_key(value) if value else value
 
 
 # ============ Environment CRUD ============
@@ -30,22 +49,19 @@ router = APIRouter()
 
 @router.get("/environments", response_model=List[DeploymentEnvironmentResponse])
 def list_environments(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=200),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Get all deployment environments.
-
-    Args:
-        skip: Number of records to skip
-        limit: Maximum number of records to return
-        db: Database session
-
-    Returns:
-        List of deployment environments
-    """
-    environments = db.query(DeploymentEnvironment).offset(skip).limit(limit).all()
+    """Get all deployment environments owned by current user."""
+    environments = (
+        db.query(DeploymentEnvironment)
+        .filter(DeploymentEnvironment.user_id == current_user.id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
     # Convert to response with masked credentials
     result = []
@@ -81,24 +97,16 @@ def list_environments(
 )
 def create_environment(
     env_data: DeploymentEnvironmentCreate,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Create a new deployment environment.
-
-    Args:
-        env_data: Environment data
-        db: Database session
-
-    Returns:
-        Created environment
-
-    Raises:
-        HTTPException: If environment with same name exists
-    """
+    """Create a new deployment environment for current user."""
     existing = (
         db.query(DeploymentEnvironment)
-        .filter(DeploymentEnvironment.name == env_data.name)
+        .filter(
+            DeploymentEnvironment.name == env_data.name,
+            DeploymentEnvironment.user_id == current_user.id,
+        )
         .first()
     )
 
@@ -111,20 +119,22 @@ def create_environment(
     # If this is set as default, unset other defaults
     if env_data.is_default:
         db.query(DeploymentEnvironment).filter(
-            DeploymentEnvironment.is_default == True
+            DeploymentEnvironment.is_default,
+            DeploymentEnvironment.user_id == current_user.id,
         ).update({"is_default": False})
 
     environment = DeploymentEnvironment(
+        user_id=current_user.id,
         name=env_data.name,
         description=env_data.description,
         cloud_platform=env_data.cloud_platform,
-        aws_access_key_id=env_data.aws_access_key_id,
-        aws_secret_access_key=env_data.aws_secret_access_key,
+        aws_access_key_id=_encrypt_optional(env_data.aws_access_key_id),
+        aws_secret_access_key=_encrypt_optional(env_data.aws_secret_access_key),
         aws_region=env_data.aws_region,
-        azure_subscription_id=env_data.azure_subscription_id,
-        azure_tenant_id=env_data.azure_tenant_id,
-        azure_client_id=env_data.azure_client_id,
-        azure_client_secret=env_data.azure_client_secret,
+        azure_subscription_id=_encrypt_optional(env_data.azure_subscription_id),
+        azure_tenant_id=_encrypt_optional(env_data.azure_tenant_id),
+        azure_client_id=_encrypt_optional(env_data.azure_client_id),
+        azure_client_secret=_encrypt_optional(env_data.azure_client_secret),
         is_default=env_data.is_default,
     )
 
@@ -154,28 +164,20 @@ def create_environment(
 
 
 @router.get(
-    "/environments/{environment_id}", response_model=DeploymentEnvironmentResponse
+    "/environments/{environment_id}", response_model=DeploymentEnvironmentDetailResponse
 )
 def get_environment(
     environment_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Get a specific deployment environment by ID.
-
-    Args:
-        environment_id: Environment ID
-        db: Database session
-
-    Returns:
-        Deployment environment
-
-    Raises:
-        HTTPException: If environment not found
-    """
+    """Get a specific deployment environment by ID."""
     environment = (
         db.query(DeploymentEnvironment)
-        .filter(DeploymentEnvironment.id == environment_id)
+        .filter(
+            DeploymentEnvironment.id == environment_id,
+            DeploymentEnvironment.user_id == current_user.id,
+        )
         .first()
     )
 
@@ -185,7 +187,7 @@ def get_environment(
             detail=f"Environment with id {environment_id} not found",
         )
 
-    return DeploymentEnvironmentResponse(
+    return DeploymentEnvironmentDetailResponse(
         id=environment.id,
         name=environment.name,
         description=environment.description,
@@ -194,12 +196,34 @@ def get_environment(
             environment.aws_access_key_id and environment.aws_secret_access_key
         ),
         aws_region=environment.aws_region,
+        aws_access_key_id=(
+            _decrypt_optional(environment.aws_access_key_id)
+            if environment.aws_access_key_id
+            else None
+        ),
+        aws_secret_access_key="***" if environment.aws_secret_access_key else None,
         has_azure_credentials=bool(
             environment.azure_subscription_id
             and environment.azure_tenant_id
             and environment.azure_client_id
             and environment.azure_client_secret
         ),
+        azure_subscription_id=(
+            _decrypt_optional(environment.azure_subscription_id)
+            if environment.azure_subscription_id
+            else None
+        ),
+        azure_tenant_id=(
+            _decrypt_optional(environment.azure_tenant_id)
+            if environment.azure_tenant_id
+            else None
+        ),
+        azure_client_id=(
+            _decrypt_optional(environment.azure_client_id)
+            if environment.azure_client_id
+            else None
+        ),
+        azure_client_secret="***" if environment.azure_client_secret else None,
         is_default=environment.is_default,
         created_at=environment.created_at,
         updated_at=environment.updated_at,
@@ -212,25 +236,16 @@ def get_environment(
 def update_environment(
     environment_id: int,
     env_data: DeploymentEnvironmentUpdate,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Update a deployment environment.
-
-    Args:
-        environment_id: Environment ID
-        env_data: Environment update data
-        db: Database session
-
-    Returns:
-        Updated environment
-
-    Raises:
-        HTTPException: If environment not found or name conflict
-    """
+    """Update a deployment environment."""
     environment = (
         db.query(DeploymentEnvironment)
-        .filter(DeploymentEnvironment.id == environment_id)
+        .filter(
+            DeploymentEnvironment.id == environment_id,
+            DeploymentEnvironment.user_id == current_user.id,
+        )
         .first()
     )
 
@@ -244,7 +259,10 @@ def update_environment(
     if env_data.name and env_data.name != environment.name:
         existing = (
             db.query(DeploymentEnvironment)
-            .filter(DeploymentEnvironment.name == env_data.name)
+            .filter(
+                DeploymentEnvironment.name == env_data.name,
+                DeploymentEnvironment.user_id == current_user.id,
+            )
             .first()
         )
         if existing:
@@ -257,11 +275,22 @@ def update_environment(
     if env_data.is_default:
         db.query(DeploymentEnvironment).filter(
             DeploymentEnvironment.id != environment_id,
-            DeploymentEnvironment.is_default == True,
+            DeploymentEnvironment.is_default,
+            DeploymentEnvironment.user_id == current_user.id,
         ).update({"is_default": False})
 
     update_data = env_data.model_dump(exclude_unset=True)
+    # Encrypt credential fields before writing
+    _credential_fields = {
+        "aws_access_key_id", "aws_secret_access_key",
+        "azure_subscription_id", "azure_tenant_id",
+        "azure_client_id", "azure_client_secret",
+    }
     for field, value in update_data.items():
+        if field in _credential_fields and value == "***":
+            continue
+        if field in _credential_fields and value:
+            value = encrypt_api_key(value)
         setattr(environment, field, value)
 
     db.commit()
@@ -291,24 +320,16 @@ def update_environment(
 @router.delete("/environments/{environment_id}", response_model=SuccessResponse)
 def delete_environment(
     environment_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Delete a deployment environment.
-
-    Args:
-        environment_id: Environment ID
-        db: Database session
-
-    Returns:
-        Success response
-
-    Raises:
-        HTTPException: If environment not found
-    """
+    """Delete a deployment environment."""
     environment = (
         db.query(DeploymentEnvironment)
-        .filter(DeploymentEnvironment.id == environment_id)
+        .filter(
+            DeploymentEnvironment.id == environment_id,
+            DeploymentEnvironment.user_id == current_user.id,
+        )
         .first()
     )
 
@@ -335,6 +356,7 @@ logger = logging.getLogger(__name__)
 @router.post("/plan", response_model=DeploymentPlanResponse)
 def create_and_plan(
     request: DeploymentPlanRequest,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -357,16 +379,34 @@ def create_and_plan(
         f"[DEPLOY] Terraform files received: {list(request.terraform_code.keys())}"
     )
 
-    # Verify environment exists
+    # Verify environment exists and belongs to current user
     environment = (
         db.query(DeploymentEnvironment)
-        .filter(DeploymentEnvironment.id == request.environment_id)
+        .filter(
+            DeploymentEnvironment.id == request.environment_id,
+            DeploymentEnvironment.user_id == current_user.id,
+        )
         .first()
     )
     if not environment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Environment with id {request.environment_id} not found",
+            detail="Environment not found or access denied",
+        )
+
+    # Verify session belongs to current user
+    session = (
+        db.query(ChatSession).filter(ChatSession.session_id == request.session_id).first()
+    )
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session with id {request.session_id} not found",
+        )
+    if session.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to deploy this session",
         )
 
     try:
@@ -378,10 +418,10 @@ def create_and_plan(
         validated_terraform_code = AzureTerraformValidator.validate_generated_files(
             request.terraform_code
         )
-        logger.info(f"[DEPLOY] Terraform code validated by AzureTerraformValidator")
+        logger.info("[DEPLOY] Terraform code validated by AzureTerraformValidator")
 
         # Create deployment with validated code
-        logger.info(f"[DEPLOY] Creating deployment...")
+        logger.info("[DEPLOY] Creating deployment...")
         deployment = executor.create_deployment(
             session_id=request.session_id,
             environment_id=request.environment_id,
@@ -390,7 +430,7 @@ def create_and_plan(
         logger.info(f"[DEPLOY] Deployment created: {deployment.deployment_id}")
 
         # Run plan
-        logger.info(f"[DEPLOY] Running terraform plan...")
+        logger.info("[DEPLOY] Running terraform plan...")
         deployment = executor.run_plan(deployment.deployment_id)
         logger.info(f"[DEPLOY] Plan completed with status: {deployment.status}")
 
@@ -405,7 +445,7 @@ def create_and_plan(
         )
 
         if deployment.status == DeploymentStatus.PLAN_FAILED:
-            logger.error(f"[DEPLOY] Plan FAILED!")
+            logger.error("[DEPLOY] Plan FAILED!")
             logger.error(f"[DEPLOY] Error message: {deployment.error_message}")
             logger.error(
                 f"[DEPLOY] Plan output: {deployment.plan_output[:2000] if deployment.plan_output else 'None'}"
@@ -440,6 +480,7 @@ def create_and_plan(
 @router.post("/apply", response_model=DeploymentApplyResponse)
 def apply_deployment(
     request: DeploymentApplyRequest,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -456,13 +497,34 @@ def apply_deployment(
         HTTPException: If deployment not found or apply fails
     """
     try:
-        print(
-            f"[API: Deploy] Apply deployment request received: deployment_id={request.deployment_id}"
+        deployment_record = (
+            db.query(Deployment)
+            .filter(Deployment.deployment_id == request.deployment_id)
+            .first()
+        )
+        if not deployment_record:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Deployment {request.deployment_id} not found",
+            )
+        session = (
+            db.query(ChatSession)
+            .filter(ChatSession.session_id == deployment_record.session_id)
+            .first()
+        )
+        if not session or session.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to apply this deployment",
+            )
+
+        logger.info(
+            f"[DEPLOY] Apply deployment request received: deployment_id={request.deployment_id}"
         )
         executor = TerraformExecutor(db)
         deployment = executor.run_apply(request.deployment_id)
-        print(
-            f"[API: Deploy] Deployment apply completed: status={deployment.status}, deployment_id={request.deployment_id}"
+        logger.info(
+            f"[DEPLOY] Deployment apply completed: status={deployment.status}, deployment_id={request.deployment_id}"
         )
 
         return DeploymentApplyResponse(
@@ -488,6 +550,7 @@ def apply_deployment(
 @router.get("/{deployment_id}", response_model=DeploymentResponse)
 def get_deployment(
     deployment_id: str,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -511,6 +574,14 @@ def get_deployment(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Deployment {deployment_id} not found",
+        )
+    session = (
+        db.query(ChatSession).filter(ChatSession.session_id == deployment.session_id).first()
+    )
+    if not session or session.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this deployment",
         )
 
     plan_summary = None
@@ -541,8 +612,9 @@ def get_deployment(
 @router.get("", response_model=List[DeploymentResponse])
 def list_deployments(
     session_id: str = None,
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -557,14 +629,24 @@ def list_deployments(
     Returns:
         List of deployments
     """
-    query = db.query(Deployment)
+    user_session_ids = [
+        row[0]
+        for row in db.query(ChatSession.session_id)
+        .filter(ChatSession.user_id == current_user.id)
+        .all()
+    ]
+
+    query = db.query(Deployment).filter(Deployment.session_id.in_(user_session_ids))
 
     if session_id:
+        if session_id not in user_session_ids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to access this session deployments",
+            )
         query = query.filter(Deployment.session_id == session_id)
 
-    deployments = (
-        query.order_by(Deployment.created_at.desc()).offset(skip).limit(limit).all()
-    )
+    deployments = query.order_by(Deployment.created_at.desc()).offset(skip).limit(limit).all()
 
     result = []
     for deployment in deployments:
@@ -600,6 +682,7 @@ def list_deployments(
 @router.post("/{deployment_id}/destroy", response_model=DeploymentResponse)
 def destroy_deployment(
     deployment_id: str,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -616,6 +699,25 @@ def destroy_deployment(
         HTTPException: If deployment not found or cannot be destroyed
     """
     try:
+        deployment_record = (
+            db.query(Deployment).filter(Deployment.deployment_id == deployment_id).first()
+        )
+        if not deployment_record:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Deployment {deployment_id} not found",
+            )
+        session = (
+            db.query(ChatSession)
+            .filter(ChatSession.session_id == deployment_record.session_id)
+            .first()
+        )
+        if not session or session.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to destroy this deployment",
+            )
+
         executor = TerraformExecutor(db)
         deployment = executor.destroy_resources(deployment_id)
 

@@ -2,8 +2,7 @@
 
 import io
 import xlsxwriter
-from typing import List, Dict, Any, Optional
-from app.schemas import TemplateType, CloudPlatform
+from app.schemas import TemplateType
 
 
 class ExcelGeneratorService:

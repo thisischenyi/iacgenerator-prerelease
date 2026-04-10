@@ -7,29 +7,39 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session as DBSession
 
 from app.core.database import get_db
-from app.models import Session
+from app.core.security import get_current_user
+from app.models import Session, User
 from app.schemas import CodeGenerationResult, GeneratedCode, ResourceCollection
 from app.services.terraform_generator import TerraformCodeGenerator
 from app.services.file_utils import FileUtilsService
 
 router = APIRouter()
-file_utils = FileUtilsService()
+
+
+def _user_file_utils(user_id: int) -> FileUtilsService:
+    """Return a FileUtilsService scoped to the user's output directory."""
+    return FileUtilsService(output_dir=os.path.join("generated_code", str(user_id)))
 
 
 @router.get("/download/{filename}")
-async def download_file(filename: str):
+async def download_file(
+    filename: str,
+    current_user: User = Depends(get_current_user),
+):
     """
     Download a generated ZIP file.
 
     Args:
         filename: Name of the file to download
+        current_user: Authenticated user
 
     Returns:
         FileResponse with the ZIP file
     """
+    user_utils = _user_file_utils(current_user.id)
     # Sanitize filename to prevent directory traversal
     filename = os.path.basename(filename)
-    file_path = os.path.join(file_utils.output_dir, filename)
+    file_path = os.path.join(user_utils.output_dir, filename)
 
     if not os.path.exists(file_path):
         raise HTTPException(
@@ -43,6 +53,7 @@ async def download_file(filename: str):
 async def generate_code(
     resources: ResourceCollection,
     session_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
     """
@@ -68,6 +79,11 @@ async def generate_code(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Session with id {session_id} not found",
             )
+        if session.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to use this session",
+            )
 
     if not resources.resources:
         raise HTTPException(
@@ -85,13 +101,14 @@ async def generate_code(
         # Generate Terraform code
         generated_files = generator.generate_code(resources_dict)
 
-        # Create ZIP file
-        zip_bytes, zip_filename = file_utils.create_zip_from_files(generated_files)
-        file_utils.save_zip_to_disk(zip_bytes, zip_filename)
+        # Create ZIP file in user-scoped directory
+        user_utils = _user_file_utils(current_user.id)
+        zip_bytes, zip_filename = user_utils.create_zip_from_files(generated_files)
+        user_utils.save_zip_to_disk(zip_bytes, zip_filename)
 
         # Clean up old files occasionally
         try:
-            file_utils.cleanup_old_files()
+            user_utils.cleanup_old_files()
         except Exception:
             pass
 
